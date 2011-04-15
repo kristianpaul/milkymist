@@ -30,7 +30,7 @@ module sysctl #(
 	output reg timer1_irq,
 
 	/* CSR bus interface */
-	input [13:0] csr_a,
+	input [14:0] csr_a:,
 	input csr_we,
 	input [31:0] csr_di,
 	output reg [31:0] csr_do,
@@ -107,7 +107,7 @@ reg [7:0] debug_scratchpad;
  * Logic and CSR interface
  */
 
-wire csr_selected = csr_a[13:10] == csr_addr;
+wire csr_selected = csr_a[14:10] == csr_addr;
 
 assign icap_we = csr_selected & csr_we & (csr_a[3:0] == 4'b1101);
 

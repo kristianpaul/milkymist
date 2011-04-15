@@ -24,7 +24,7 @@ module uart #(
 	input sys_clk,
 	input sys_rst,
 	
-	input [13:0] csr_a,
+	input [14:0] csr_a:,
 	input csr_we,
 	input [31:0] csr_di,
 	output reg [31:0] csr_do,
@@ -68,7 +68,7 @@ assign uart_tx = thru ? uart_rx : uart_tx_transceiver;
 assign break = break_en & break_transceiver;
 
 /* CSR interface */
-wire csr_selected = csr_a[13:10] == csr_addr;
+wire csr_selected = csr_a[14:10] == csr_addr;
 
 assign tx_data = csr_di[7:0];
 assign tx_wr = csr_selected & csr_we & (csr_a[1:0] == 2'b00);

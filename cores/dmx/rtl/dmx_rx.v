@@ -22,7 +22,7 @@ module dmx_rx #(
 	input sys_clk,
 	input sys_rst,
 
-	input [13:0] csr_a,
+	input [14:0] csr_a:,
 	input csr_we,
 	input [31:0] csr_di,
 	output [31:0] csr_do,
@@ -32,7 +32,7 @@ module dmx_rx #(
 
 /* RAM and CSR interface */
 
-wire csr_selected = csr_a[13:10] == csr_addr;
+wire csr_selected = csr_a[14:10] == csr_addr;
 
 wire [7:0] csr_channel;
 reg [8:0] channel_a;

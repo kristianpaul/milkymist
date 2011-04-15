@@ -21,7 +21,7 @@ module minimac2_ctlif #(
 	input sys_clk,
 	input sys_rst,
 
-	input [13:0] csr_a,
+	input [14:0] csr_a:,
 	input csr_we,
 	input [31:0] csr_di,
 	output reg [31:0] csr_do,
@@ -70,7 +70,7 @@ assign phy_rst_n = ~phy_rst;
 reg [1:0] slot0_state;
 reg [1:0] slot1_state;
 
-wire csr_selected = csr_a[13:10] == csr_addr;
+wire csr_selected = csr_a[14:10] == csr_addr;
 
 always @(posedge sys_clk) begin
 	if(sys_rst) begin

@@ -21,7 +21,7 @@ module ac97_ctlif #(
 	input sys_clk,
 	input sys_rst,
 
-	input [13:0] csr_a,
+	input [14:0] csr_a:,
 	input csr_we,
 	input [31:0] csr_di,
 	output reg [31:0] csr_do,
@@ -73,7 +73,7 @@ always @(posedge sys_clk) begin
 		dmaw_finished_r <= dmaw_finished;
 end
 
-wire csr_selected = csr_a[13:10] == csr_addr;
+wire csr_selected = csr_a[14:10] == csr_addr;
 
 reg request_en;
 reg request_write;

@@ -21,7 +21,7 @@ module pfpu_ctlif #(
 	input sys_clk,
 	input sys_rst,
 	
-	input [13:0] csr_a,
+	input [14:0] csr_a:,
 	input csr_we,
 	input [31:0] csr_di,
 	output [31:0] csr_do,
@@ -76,7 +76,7 @@ reg [13:0] vertex_counter;
 reg [10:0] collision_counter;
 reg [10:0] stray_counter;
 
-wire csr_selected = csr_a[13:10] == csr_addr;
+wire csr_selected = csr_a[14:10] == csr_addr;
 
 reg [31:0] csr_do_r;
 reg csr_do_cont;

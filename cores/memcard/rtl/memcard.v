@@ -21,7 +21,7 @@ module memcard #(
 	input sys_clk,
 	input sys_rst,
 
-	input [13:0] csr_a,
+	input [14:0] csr_a:,
 	input csr_we,
 	input [31:0] csr_di,
 	output reg [31:0] csr_do,
@@ -98,7 +98,7 @@ always @(posedge sys_clk) begin
 	mc_d_r2 <= mc_d_r1;
 end
 
-wire csr_selected = csr_a[13:10] == csr_addr;
+wire csr_selected = csr_a[14:10] == csr_addr;
 
 reg [2:0] cmd_bitcount;
 reg [2:0] dat_bitcount;

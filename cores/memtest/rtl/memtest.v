@@ -23,7 +23,7 @@ module memtest #(
 	input sys_rst,
 
 	/* Configuration interface */
-	input [13:0] csr_a,
+	input [14:0] csr_a:,
 	input csr_we,
 	input [31:0] csr_di,
 	output reg [31:0] csr_do,
@@ -41,7 +41,7 @@ module memtest #(
 wire rand_ce;
 wire [63:0] rand;
 
-wire csr_selected = csr_a[13:10] == csr_addr;
+wire csr_selected = csr_a[14:10] == csr_addr;
 wire load_nbursts = csr_selected & (csr_a[2:0] == 3'd0) & csr_we;
 wire load_address = csr_selected & (csr_a[2:0] == 3'd2) & csr_we;
 

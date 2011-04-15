@@ -29,7 +29,7 @@ module csrbrg(
 	output reg wb_ack_o,
 	
 	/* CSR */
-	output reg [13:0] csr_a,
+	output reg [14:0] csr_a,
 	output reg csr_we,
 	output reg [31:0] csr_do,
 	input [31:0] csr_di
@@ -43,7 +43,7 @@ end
 /* Datapath: CSR <- WB */
 reg next_csr_we;
 always @(posedge sys_clk) begin
-	csr_a <= wb_adr_i[15:2];
+	csr_a <= wb_adr_i[16:2];
 	csr_we <= next_csr_we;
 	csr_do <= wb_dat_i;
 end
