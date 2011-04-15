@@ -495,7 +495,7 @@ conbus5x6 #(
 //------------------------------------------------------------------
 // CSR bus
 //------------------------------------------------------------------
-wire [13:0]	csr_a;
+wire [14:0]	csr_a;
 wire		csr_we;
 wire [31:0]	csr_dw;
 wire [31:0]	csr_dr_uart,
@@ -863,7 +863,7 @@ assign monitor_ack = 1'b0;
 // UART
 //---------------------------------------------------------------------------
 uart #(
-	.csr_addr(4'h0),
+	.csr_addr(5'h0),
 	.clk_freq(`CLOCK_FREQUENCY),
 	.baud(`BAUD_RATE),
 	.break_en_default(1'b1)
@@ -896,7 +896,7 @@ wire [13:0] gpio_outputs;
 wire [31:0] capabilities;
 
 sysctl #(
-	.csr_addr(4'h1),
+	.csr_addr(5'h1),
 	.ninputs(7),
 	.noutputs(2),
 	.systemid(32'h10044D31) /* 1.0.0 RC4 on M1 */
@@ -928,7 +928,7 @@ gen_capabilities gen_capabilities(
 // DDR SDRAM
 //---------------------------------------------------------------------------
 ddram #(
-	.csr_addr(4'h2)
+	.csr_addr(5'h2)
 ) ddram (
 	.sys_clk(sys_clk),
 	.sys_clk_n(sys_clk_n),
@@ -965,7 +965,7 @@ ddram #(
 // VGA
 //---------------------------------------------------------------------------
 vga #(
-	.csr_addr(4'h3),
+	.csr_addr(5'h3),
 	.fml_depth(`SDRAM_DEPTH)
 ) vga (
 	.sys_clk(sys_clk),
@@ -1004,7 +1004,7 @@ vga #(
 //---------------------------------------------------------------------------
 `ifdef ENABLE_MEMORYCARD
 memcard #(
-	.csr_addr(4'h4)
+	.csr_addr(5'h4)
 ) memcard (
 	.sys_clk(sys_clk),
 	.sys_rst(sys_rst),
@@ -1040,7 +1040,7 @@ BUFG b_ac97(
 );
 `ifdef ENABLE_AC97
 ac97 #(
-	.csr_addr(4'h5)
+	.csr_addr(5'h5)
 ) ac97 (
 	.sys_clk(sys_clk),
 	.sys_rst(sys_rst),
@@ -1095,7 +1095,7 @@ assign ac97bus_dat_w = 32'bx;
 //---------------------------------------------------------------------------
 `ifdef ENABLE_PFPU
 pfpu #(
-	.csr_addr(4'h6)
+	.csr_addr(5'h6)
 ) pfpu (
 	.sys_clk(sys_clk),
 	.sys_rst(sys_rst),
@@ -1130,7 +1130,7 @@ assign pfpubus_stb = 1'b0;
 //---------------------------------------------------------------------------
 `ifdef ENABLE_TMU
 tmu2 #(
-	.csr_addr(4'h7),
+	.csr_addr(5'h7),
 	.fml_depth(`SDRAM_DEPTH)
 ) tmu (
 	.sys_clk(sys_clk),
@@ -1170,7 +1170,7 @@ tmu2 #(
 `else
 `ifdef ENABLE_MEMTEST
 memtest #(
-	.csr_addr(4'h7),
+	.csr_addr(5'h7),
 	.fml_depth(`SDRAM_DEPTH)
 ) memtest (
 	.sys_clk(sys_clk),
@@ -1244,7 +1244,7 @@ BUFG b_phy_rx_clk(
 );
 `ifdef ENABLE_ETHERNET
 minimac2 #(
-	.csr_addr(4'h8)
+	.csr_addr(5'h8)
 ) ethernet (
 	.sys_clk(sys_clk),
 	.sys_rst(sys_rst),
@@ -1300,7 +1300,7 @@ always @(posedge clk50) phy_clk <= ~phy_clk;
 //---------------------------------------------------------------------------
 `ifdef ENABLE_FMLMETER
 fmlmeter #(
-	.csr_addr(4'h9)
+	.csr_addr(5'h9)
 ) fmlmeter (
 	.sys_clk(sys_clk),
 	.sys_rst(sys_rst),
@@ -1327,7 +1327,7 @@ BUFG b_videoin(
 );
 `ifdef ENABLE_VIDEOIN
 bt656cap #(
-	.csr_addr(4'ha),
+	.csr_addr(5'ha),
 	.fml_depth(`SDRAM_DEPTH)
 ) videoin (
 	.sys_clk(sys_clk),
@@ -1367,7 +1367,7 @@ assign videoin_sdc = 1'b0;
 //---------------------------------------------------------------------------
 `ifdef ENABLE_MIDI
 uart #(
-	.csr_addr(4'hb),
+	.csr_addr(5'hb),
 	.clk_freq(`CLOCK_FREQUENCY),
 	.baud(31250),
 	.break_en_default(1'b0)
@@ -1398,7 +1398,7 @@ assign midi_tx = 1'b1;
 //---------------------------------------------------------------------------
 `ifdef ENABLE_DMX
 dmx_tx #(
-	.csr_addr(4'hc),
+	.csr_addr(5'hc),
 	.clk_freq(`CLOCK_FREQUENCY)
 ) dmx_tx (
 	.sys_clk(sys_clk),
@@ -1414,7 +1414,7 @@ dmx_tx #(
 );
 assign dmxa_de = 1'b1;
 dmx_rx #(
-	.csr_addr(4'hd),
+	.csr_addr(5'hd),
 	.clk_freq(`CLOCK_FREQUENCY)
 ) dmx_rx (
 	.sys_clk(sys_clk),
@@ -1443,7 +1443,7 @@ assign dmxb_d = 1'b0;
 //---------------------------------------------------------------------------
 `ifdef ENABLE_IR
 rc5 #(
-	.csr_addr(4'he),
+	.csr_addr(5'he),
 	.clk_freq(`CLOCK_FREQUENCY)
 ) ir (
 	.sys_clk(sys_clk),
@@ -1507,7 +1507,7 @@ BUFG usb_b_p(
 );
 `ifdef ENABLE_USB
 softusb #(
-	.csr_addr(4'hf)
+	.csr_addr(5'hf)
 ) usb (
 	.sys_clk(sys_clk),
 	.sys_rst(sys_rst),
