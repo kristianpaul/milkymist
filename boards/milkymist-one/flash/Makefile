@@ -49,7 +49,7 @@ splash.raw: splash.png
 	$(MMDIR)/tools/makeraw splash.png
 
 flash: all
-	jtag -n flashall.batch
+	sudo jtag -n flashall.batch
 
 connect:
 	stty -F $(SERIAL) raw 115200
