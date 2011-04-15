@@ -73,7 +73,7 @@ macaddress:
 	.byte 0xd5
 	.byte 0x00
 	.byte 0x00
-	.byte 0x00
+	.byte 0x2e
 
 	/* padding to align to a 32-bit boundary */
 	.byte 0x00
