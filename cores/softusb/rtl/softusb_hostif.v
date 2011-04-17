@@ -24,7 +24,7 @@ module softusb_hostif #(
 	input usb_clk,
 	output reg usb_rst,
 
-	input [14:0] csr_a:,
+	input [14:0] csr_a,
 	input csr_we,
 	input [31:0] csr_di,
 	output reg [31:0] csr_do,

@@ -33,7 +33,7 @@ module hpdmc #(
 	input sys_rst,
 	
 	/* Control interface */
-	input [14:0] csr_a:,
+	input [14:0] csr_a,
 	input csr_we,
 	input [31:0] csr_di,
 	output [31:0] csr_do,
