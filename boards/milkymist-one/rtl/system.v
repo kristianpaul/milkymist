@@ -135,7 +135,11 @@ module system(
 	input ir_rx,
 
 	// Expansion connector
-	input [11:0] exp,
+	input [9:0] exp,
+
+	// UART1 
+	input uart1_rx,
+	output uart1_tx,
 
 	// PCB revision
 	input [3:0] pcb_revision
@@ -513,7 +517,8 @@ wire [31:0]	csr_dr_uart,
 		csr_dr_dmx_tx,
 		csr_dr_dmx_rx,
 		csr_dr_ir,
-		csr_dr_usb;
+		csr_dr_usb,
+		csr_dr_uart1;
 
 //------------------------------------------------------------------
 // FML master wires
@@ -676,6 +681,7 @@ csrbrg csrbrg(
 		|csr_dr_dmx_rx
 		|csr_dr_ir
 		|csr_dr_usb
+		|csr_dr_uart1
 	)
 );
 
@@ -738,9 +744,13 @@ wire midirx_irq;
 wire miditx_irq;
 wire ir_irq;
 wire usb_irq;
+wire uart1rx_irq;
+wire uart1tx_irq;
 
 wire [31:0] cpu_interrupt;
 assign cpu_interrupt = {14'd0,
+	uart1tx_irq,
+	uart1rx_irq,
 	usb_irq,
 	ir_irq,
 	miditx_irq,
@@ -1570,5 +1580,28 @@ FD workaround(
 );
 
 `endif
+
+//---------------------------------------------------------------------------
+// UART1
+//---------------------------------------------------------------------------
+uart #(
+	.csr_addr(5'h10),
+	.clk_freq(`CLOCK_FREQUENCY),
+	.baud(`BAUD_RATE)
+) uart1 (
+		.sys_clk(sys_clk),
+		.sys_rst(sys_rst),
+	
+		.csr_a(csr_a),
+		.csr_we(csr_we),
+		.csr_di(csr_dw),
+		.csr_do(csr_dr_uart1),
+	
+		.rx_irq(uart1rx_irq),
+		.tx_irq(uart1tx_irq),
+	
+		.uart_rx(uart1_rx),
+		.uart_tx(uart1_tx)
+	);
 
 endmodule
