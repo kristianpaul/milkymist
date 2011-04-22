@@ -26,13 +26,14 @@
  * from http://www.opencores.org/lgpl.shtml.
  */
 
-module conbus5x6 #(
+module conbus5x7 #(
 	parameter s0_addr = 3'b000,
 	parameter s1_addr = 3'b001,
 	parameter s2_addr = 3'b010,
 	parameter s3_addr = 3'b011,
 	parameter s4_addr = 2'b10,
-	parameter s5_addr = 2'b11
+	parameter s5_addr = 2'b11,
+	parameter s6_addr = 3'b111
 ) (
 	input sys_clk,
 	input sys_rst,
@@ -157,14 +158,25 @@ module conbus5x6 #(
 	output		s5_we_o,
 	output		s5_cyc_o,
 	output		s5_stb_o,
-	input		s5_ack_i
+	input		s5_ack_i,
+
+	// Slave 6 Interface
+	input	[31:0]	s6_dat_i,
+	output	[31:0]	s6_dat_o,
+	output	[31:0]	s6_adr_o,
+	output	[2:0]	s6_cti_o,
+	output	[3:0]	s6_sel_o,
+	output		s6_we_o,
+	output		s6_cyc_o,
+	output		s6_stb_o,
+	input		s6_ack_i
 );
 
 // address + CTI + data + byte select
 // + cyc + we + stb
 `define mbusw_ls  32 + 3 + 32 + 4 + 3
 
-wire [5:0] slave_sel;
+wire [6:0] slave_sel;
 wire [2:0] gnt;
 reg [`mbusw_ls -1:0] i_bus_m;	// internal shared bus, master data and control to slave
 wire [31:0] i_dat_s;		// internal shared bus, slave data to master
@@ -216,6 +228,10 @@ assign {s4_adr_o, s4_cti_o, s4_sel_o, s4_dat_o, s4_we_o, s4_cyc_o, s4_stb_o}
 assign {s5_adr_o, s5_cti_o, s5_sel_o, s5_dat_o, s5_we_o, s5_cyc_o, s5_stb_o} 
 	= {i_bus_m[`mbusw_ls -1:2], i_bus_m[1] & slave_sel[5], i_bus_m[0]};
 
+// slave 6
+assign {s6_adr_o, s6_cti_o, s6_sel_o, s6_dat_o, s6_we_o, s6_cyc_o, s6_stb_o} 
+	= {i_bus_m[`mbusw_ls -1:2], i_bus_m[1] & slave_sel[6], i_bus_m[0]};
+
 always @(*) begin
 	case(gnt)
 		3'd0:    i_bus_m = {m0_adr_i, m0_cti_i, m0_sel_i, m0_dat_i, m0_we_i, m0_cyc_i, m0_stb_i};
@@ -227,7 +243,7 @@ always @(*) begin
 end
 
 // !!!! This breaks WISHBONE combinatorial feedback. Don't use it !!!!
-reg [5:0] slave_sel_r;
+reg [6:0] slave_sel_r;
 always @(posedge sys_clk)
 	slave_sel_r <= slave_sel;
 // !!!! This breaks WISHBONE combinatorial feedback. Don't use it !!!!
@@ -238,7 +254,8 @@ assign i_dat_s =
 		|({32{slave_sel_r[2]}} & s2_dat_i)
 		|({32{slave_sel_r[3]}} & s3_dat_i)
 		|({32{slave_sel_r[4]}} & s4_dat_i)
-		|({32{slave_sel_r[5]}} & s5_dat_i);
+                |({32{slave_sel_r[5]}} & s5_dat_i)
+		|({32{slave_sel_r[6]}} & s6_dat_i);
 
 wire [4:0] req = {m4_cyc_i, m3_cyc_i, m2_cyc_i, m1_cyc_i, m0_cyc_i};
 
@@ -255,5 +272,6 @@ assign slave_sel[2] = (i_bus_m[`mbusw_ls-2 : `mbusw_ls-3-1] == s2_addr);
 assign slave_sel[3] = (i_bus_m[`mbusw_ls-2 : `mbusw_ls-3-1] == s3_addr);
 assign slave_sel[4] = (i_bus_m[`mbusw_ls-2 : `mbusw_ls-2-1] == s4_addr);
 assign slave_sel[5] = (i_bus_m[`mbusw_ls-2 : `mbusw_ls-2-1] == s5_addr);
+assign slave_sel[6] = (i_bus_m[`mbusw_ls-2 : `mbusw_ls-3-1] == s6_addr);
 
 endmodule

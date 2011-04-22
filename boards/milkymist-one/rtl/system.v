@@ -18,6 +18,7 @@
 `include "setup.v"
 `include "lm32_include.v"
 
+
 module system(
 	input clk50,
 
@@ -361,15 +362,17 @@ wire		norflash_ack,
 // Ethernet     0x30000000 (shadow @0xb0000000)
 // SDRAM        0x40000000 (shadow @0xc0000000)
 // CSR bridge   0x60000000 (shadow @0xe0000000)
+// L1 Receiver  0x70000000 (shadow @0xf0000000)
 
 // MSB (Bit 31) is ignored for slave address decoding
-conbus5x6 #(
+conbus5x7 #(
 	.s0_addr(3'b000), // norflash
 	.s1_addr(3'b001), // debug
 	.s2_addr(3'b010), // USB
 	.s3_addr(3'b011), // Ethernet
 	.s4_addr(2'b10),  // SDRAM
-	.s5_addr(2'b11)   // CSR
+	.s5_addr(2'b11),  // CSR
+	.s6_addr(3'b111)  // L1 GPS Receiver
 ) wbswitch (
 	.sys_clk(sys_clk),
 	.sys_rst(sys_rst),
@@ -494,6 +497,16 @@ conbus5x6 #(
 	.s5_cyc_o(csrbrg_cyc),
 	.s5_stb_o(csrbrg_stb),
 	.s5_ack_i(csrbrg_ack)
+	// Slave 6
+	/*.s6_dat_i(),
+	.s6_dat_o(),
+	.s6_adr_o(),
+	.s6_cti_o(),
+	.s6_sel_o(),
+	.s6_we_o(),
+	.s6_cyc_o(),
+	.s6_stb_o(),
+	.s6_ack_i(),*/
 );
 
 //------------------------------------------------------------------
