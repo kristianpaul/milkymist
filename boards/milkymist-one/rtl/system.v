@@ -142,6 +142,9 @@ module system(
 	input uart1_rx,
 	output uart1_tx,
 
+	// Debug Led
+	output debug_led,
+
 	// PCB revision
 	input [3:0] pcb_revision
 );
@@ -302,7 +305,8 @@ wire [31:0]	norflash_adr,
 		usb_adr,
 		eth_adr,
 		brg_adr,
-		csrbrg_adr;
+		csrbrg_adr,
+		hello_adr;
 
 wire [2:0]	brg_cti;
 
@@ -317,7 +321,9 @@ wire [31:0]	norflash_dat_r,
 		brg_dat_r,
 		brg_dat_w,
 		csrbrg_dat_r,
-		csrbrg_dat_w;
+		csrbrg_dat_w,
+		hello_dat_r,
+		hello_dat_w;
 
 wire [3:0]	norflash_sel,
 		monitor_sel,
@@ -330,28 +336,32 @@ wire		norflash_we,
 		usb_we,
 		eth_we,
 		brg_we,
-		csrbrg_we;
+		csrbrg_we,
+		hello_we;
 
 wire		norflash_cyc,
 		monitor_cyc,
 		usb_cyc,
 		eth_cyc,
 		brg_cyc,
-		csrbrg_cyc;
+		csrbrg_cyc,
+		hello_cyc;
 
 wire		norflash_stb,
 		monitor_stb,
 		usb_stb,
 		eth_stb,
 		brg_stb,
-		csrbrg_stb;
+		csrbrg_stb,
+		hello_stb;
 
 wire		norflash_ack,
 		monitor_ack,
 		usb_ack,
 		eth_ack,
 		brg_ack,
-		csrbrg_ack;
+		csrbrg_ack,
+		hello_ack;
 
 //---------------------------------------------------------------------------
 // Wishbone switch
@@ -362,7 +372,7 @@ wire		norflash_ack,
 // Ethernet     0x30000000 (shadow @0xb0000000)
 // SDRAM        0x40000000 (shadow @0xc0000000)
 // CSR bridge   0x60000000 (shadow @0xe0000000)
-// L1 Receiver  0x70000000 (shadow @0xf0000000)
+// Hello Core   0x70000000 (shadow @0xf0000000)
 
 // MSB (Bit 31) is ignored for slave address decoding
 conbus5x7 #(
@@ -372,7 +382,7 @@ conbus5x7 #(
 	.s3_addr(3'b011), // Ethernet
 	.s4_addr(2'b10),  // SDRAM
 	.s5_addr(2'b11),  // CSR
-	.s6_addr(3'b111)  // L1 GPS Receiver
+	.s6_addr(3'b111)  // Debug Led
 ) wbswitch (
 	.sys_clk(sys_clk),
 	.sys_rst(sys_rst),
@@ -496,17 +506,17 @@ conbus5x7 #(
 	.s5_we_o(csrbrg_we),
 	.s5_cyc_o(csrbrg_cyc),
 	.s5_stb_o(csrbrg_stb),
-	.s5_ack_i(csrbrg_ack)
+	.s5_ack_i(csrbrg_ack),
 	// Slave 6
-	/*.s6_dat_i(),
-	.s6_dat_o(),
-	.s6_adr_o(),
+	.s6_dat_i(hello_dat_r),
+	.s6_dat_o(hello_dat_w),
+	.s6_adr_o(hello_adr),
 	.s6_cti_o(),
 	.s6_sel_o(),
-	.s6_we_o(),
-	.s6_cyc_o(),
-	.s6_stb_o(),
-	.s6_ack_i(),*/
+	.s6_we_o(hello_we),
+	.s6_cyc_o(hello_cyc),
+	.s6_stb_o(hello_stb),
+	.s6_ack_i(hello_ack)
 );
 
 //------------------------------------------------------------------
@@ -1616,5 +1626,23 @@ uart #(
 		.uart_rx(uart1_rx),
 		.uart_tx(uart1_tx)
 	);
+
+//---------------------------------------------------------------------------
+// Debug led 
+//---------------------------------------------------------------------------
+hello hello(
+	.sys_clk(sys_clk),
+	.sys_rst(sys_rst),
+
+	.wb_adr_i(hello_adr),
+	.wb_dat_i(hello_dat_w),
+	.wb_dat_o(hello_dat_r),
+	.wb_cyc_i(hello_cyc),
+	.wb_stb_i(hello_stb),
+	.wb_we_i(hello_we),
+	.wb_ack_o(hello_ack),
+
+	.debug_led(debug_led)
+);
 
 endmodule

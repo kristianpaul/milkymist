@@ -302,12 +302,14 @@ NET "exp(2)" LOC = A21;
 NET "exp(3)" LOC = F17;
 NET "exp(4)" LOC = B21;
 NET "exp(5)" LOC = H16;
-NET "exp(6)" LOC = B22;
-NET "exp(7)" LOC = H17;
-NET "exp(8)" LOC = J16;
-NET "exp(9)" LOC = K16;
+NET "exp(6)" LOC = H17;
+NET "exp(7)" LOC = J16;
+NET "exp(8)" LOC = K16;
 
 NET "exp(*)" IOSTANDARD = LVCMOS33;
+
+# ==== Debug Led ====
+NET "debug_led" LOC = B22 | IOSTANDARD = LVCMOS33 | SLEW = QUIETIO | DRIVE = 24;
 
 # ==== UART1 ====
 NET "uart1_rx" LOC = G17 | IOSTANDARD = LVCMOS33 | PULLUP;		#IO_L13P_1

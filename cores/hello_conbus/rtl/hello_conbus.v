@@ -16,7 +16,7 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-module hello_conbus(
+module hello(
 	input sys_clk,
 	input sys_rst,
 	
@@ -44,17 +44,18 @@ end
 reg [1:0] state;
 reg [1:0] next_state;
 
-reg led_state;
+reg led_state = 1'b0;
 
 parameter IDLE		= 2'd0;
 parameter DELAYACK1	= 2'd1;
 parameter DELAYACK2	= 2'd2;
 parameter ACK		= 2'd3;
 
+parameter OFF		= 1'd0;
+
 always @(posedge sys_clk) begin
 	if(sys_rst)
 		state <= IDLE;
-		led_state <= 1'b1;
 	else
 		state <= next_state;
 end
@@ -85,8 +86,10 @@ end
 
 /* Drive LEd */
 always @(posedge sys_clk) begin
-	if(wb_sel_i)
-		debug_led <= data_i[0];
+	// ACK!!!
+	led_state <= data_i[0];
 end
+
+assign  debug_led = led_state;
 
 endmodule
