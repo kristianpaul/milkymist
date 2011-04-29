@@ -83,11 +83,20 @@ always @(*) begin
 		end
 	endcase
 end
+//parameter csr_addr = 4'h0
+//wire csr_selected = csr_a[14:10] == csr_addr;
+
+/* fake read data */
+always @(posedge sys_clk) begin
+	if(next_state == DELAYACK1)
+		wb_dat_o <= 31'hf0f0f0f0;
+end
 
 /* Drive LEd */
 always @(posedge sys_clk) begin
 	// ACK!!!
-	led_state <= data_i[0];
+	if(next_state == ACK)
+		led_state <= data_i[0];
 end
 
 assign  debug_led = led_state;
