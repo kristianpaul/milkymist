@@ -382,7 +382,7 @@ conbus5x7 #(
 	.s3_addr(3'b011), // Ethernet
 	.s4_addr(2'b10),  // SDRAM
 	.s5_addr(2'b11),  // CSR
-	.s6_addr(3'b111)  // Debug Led
+	.s6_addr(3'b111)  // Hello Core
 ) wbswitch (
 	.sys_clk(sys_clk),
 	.sys_rst(sys_rst),
