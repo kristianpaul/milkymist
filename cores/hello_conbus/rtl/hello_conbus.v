@@ -89,7 +89,7 @@ end
 /* fake read data */
 always @(posedge sys_clk) begin
 	if(next_state == DELAYACK1)
-		wb_dat_o <= 31'hf0f0f0f0;
+		wb_dat_o <= 4'hffff;
 end
 
 /* Drive LEd */
