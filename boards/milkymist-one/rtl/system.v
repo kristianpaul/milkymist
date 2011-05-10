@@ -136,11 +136,17 @@ module system(
 	input ir_rx,
 
 	// Expansion connector
-	input [9:0] exp,
+	input [5:0] exp,
 
 	// UART1 
 	input uart1_rx,
 	output uart1_tx,
+	
+	// L1 GPS Receiver	
+	input gps_rec_clk,
+	input gps_rec_sync,
+	input gps_rec_data,
+	output gps_led,
 
 	// PCB revision
 	input [3:0] pcb_revision
@@ -302,7 +308,8 @@ wire [31:0]	norflash_adr,
 		usb_adr,
 		eth_adr,
 		brg_adr,
-		csrbrg_adr;
+		csrbrg_adr,
+		gps_receiver_adr;
 
 wire [2:0]	brg_cti;
 
@@ -317,41 +324,48 @@ wire [31:0]	norflash_dat_r,
 		brg_dat_r,
 		brg_dat_w,
 		csrbrg_dat_r,
-		csrbrg_dat_w;
+		csrbrg_dat_w,
+		gps_receiver_dat_r,
+		gps_receiver_dat_w;
 
 wire [3:0]	norflash_sel,
 		monitor_sel,
 		usb_sel,
 		eth_sel,
-		brg_sel;
+		brg_sel,
+		gps_receiver_sel;
 
 wire		norflash_we,
 		monitor_we,
 		usb_we,
 		eth_we,
 		brg_we,
-		csrbrg_we;
+		csrbrg_we,
+		gps_receiver_we;
 
 wire		norflash_cyc,
 		monitor_cyc,
 		usb_cyc,
 		eth_cyc,
 		brg_cyc,
-		csrbrg_cyc;
+		csrbrg_cyc,
+		gps_receiver_cyc;
 
 wire		norflash_stb,
 		monitor_stb,
 		usb_stb,
 		eth_stb,
 		brg_stb,
-		csrbrg_stb;
+		csrbrg_stb,
+		gps_receiver_stb;
 
 wire		norflash_ack,
 		monitor_ack,
 		usb_ack,
 		eth_ack,
 		brg_ack,
-		csrbrg_ack;
+		csrbrg_ack,
+		gps_receiver_ack;
 
 //---------------------------------------------------------------------------
 // Wishbone switch
@@ -362,7 +376,7 @@ wire		norflash_ack,
 // Ethernet     0x30000000 (shadow @0xb0000000)
 // SDRAM        0x40000000 (shadow @0xc0000000)
 // CSR bridge   0x60000000 (shadow @0xe0000000)
-// L1 Receiver  0x70000000 (shadow @0xf0000000)
+// GPS Receiver  0x70000000 (shadow @0xf0000000)
 
 // MSB (Bit 31) is ignored for slave address decoding
 conbus5x7 #(
@@ -498,15 +512,15 @@ conbus5x7 #(
 	.s5_stb_o(csrbrg_stb),
 	.s5_ack_i(csrbrg_ack)
 	// Slave 6
-	/*.s6_dat_i(),
-	.s6_dat_o(),
-	.s6_adr_o(),
+	.s6_dat_i(gps_receiver_dat_r),
+	.s6_dat_o(gps_receiver_dat_w),
+	.s6_adr_o(gps_receiver__adr),
 	.s6_cti_o(),
-	.s6_sel_o(),
-	.s6_we_o(),
-	.s6_cyc_o(),
-	.s6_stb_o(),
-	.s6_ack_i(),*/
+	.s6_sel_o(gps_receiver_sel),
+	.s6_we_o(gps_receiver_we),
+	.s6_cyc_o(gps_receiver_cyc),
+	.s6_stb_o(gps_receiver_stb),
+	.s6_ack_i(gps_receiver_ack),
 );
 
 //------------------------------------------------------------------
@@ -531,7 +545,8 @@ wire [31:0]	csr_dr_uart,
 		csr_dr_dmx_rx,
 		csr_dr_ir,
 		csr_dr_usb,
-		csr_dr_uart1;
+		csr_dr_uart1,
+		csr_dr_gps_receiver;
 
 //------------------------------------------------------------------
 // FML master wires
@@ -1617,4 +1632,56 @@ uart #(
 		.uart_tx(uart1_tx)
 	);
 
+//---------------------------------------------------------------------------
+// UART1
+//---------------------------------------------------------------------------
+uart #(
+	.csr_addr(5'h10),
+	.clk_freq(`CLOCK_FREQUENCY),
+	.baud(`BAUD_RATE)
+) uart1 (
+		.sys_clk(sys_clk),
+		.sys_rst(sys_rst),
+	
+		.csr_a(csr_a),
+		.csr_we(csr_we),
+		.csr_di(csr_dw),
+		.csr_do(csr_dr_uart1),
+	
+		.rx_irq(uart1rx_irq),
+		.tx_irq(uart1tx_irq),
+	
+		.uart_rx(uart1_rx),
+		.uart_tx(uart1_tx)
+	);
+
 endmodule
+
+//---------------------------------------------------------------------------
+//  L1 GPS Receiver
+//---------------------------------------------------------------------------
+gps_receiver #(
+	.csr_addr(5'h11),
+) gps_receiver (
+		.sys_clk(sys_clk),
+		.sys_rst(sys_rst),
+
+	        .wb_adr_i(gps_receiver_adr),
+		.wb_dat_o(gps_receiver_dat_r),
+		.wb_dat_i(gps_receiver_dat_w),
+		.wb_sel_i(gps_receiver_sel),
+		.wb_stb_i(gps_receiver_stb),
+		.wb_cyc_i(gps_receiver_cyc),
+		.wb_ack_o(gps_receiver_ack),
+		.wb_we_i(eth_we),
+
+		.csr_a(csr_a),
+		.csr_we(csr_we),
+		.csr_di(csr_dw),
+		.csr_do(csr_dr_gps_receiver),
+
+		.clk(gps_rec_clk),
+		.sync(gps_rec_sync),
+		.data(gps_rec_data),
+		.led(gps_led)
+	);
