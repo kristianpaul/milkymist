@@ -4,6 +4,9 @@
 *.swp
 *.elf
 *.bin
+*.fpg
+*.raw
+*.fbi
 boards/milkymist-one/synthesis/build
 boards/milkymist-one/synthesis/build-rescue
 boards/milkymist-one/standby/build
@@ -15,6 +18,7 @@ boards/milkymist-one/flash/standby.fpg
 software/demo/boot.fbi
 software/demo/logo.h
 software/demo/logo.raw
+software/demo/logo.h
 software/libfpvm/parser.c
 software/libfpvm/parser.h
 software/libfpvm/parser.out

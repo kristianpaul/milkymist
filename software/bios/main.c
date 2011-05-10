@@ -482,10 +482,10 @@ static int test_user_abort()
 			c = readchar();
 			if((c == 'Q')||(c == '\e')) {
 				puts("I: Aborted boot on user request");
-				vga_set_console(1);
 				return 0;
 			}
 			if(c == 0x07) {
+				vga_unblank();
 				vga_set_console(1);
 				netboot();
 				return 0;
@@ -533,7 +533,7 @@ static void print_mac()
 
 static const char banner[] =
 	"\nMILKYMIST(tm) v"VERSION" BIOS   http://www.milkymist.org\n"
-	"(c) Copyright 2007, 2008, 2009, 2010 Sebastien Bourdeauducq\n\n"
+	"(c) Copyright 2007, 2008, 2009, 2010, 2011 Sebastien Bourdeauducq\n\n"
 	"This program is free software: you can redistribute it and/or modify\n"
 	"it under the terms of the GNU General Public License as published by\n"
 	"the Free Software Foundation, version 3 of the License.\n\n";
@@ -602,7 +602,7 @@ int main(int i, char **c)
 	irq_setmask(0);
 	irq_enable(1);
 	uart_init();
-	vga_init();
+	vga_init(!(rescue || (CSR_GPIO_IN & GPIO_BTN2)));
 	putsnonl(banner);
 	crcbios();
 	brd_init();
@@ -616,6 +616,7 @@ int main(int i, char **c)
 	splash_display();
 	print_mac();
 	boot_sequence();
+	vga_unblank();
 	vga_set_console(1);
 	while(1) {
 		putsnonl("\e[1mBIOS>\e[0m ");
