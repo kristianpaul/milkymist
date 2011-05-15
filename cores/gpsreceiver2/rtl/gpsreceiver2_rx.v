@@ -29,13 +29,14 @@ module gpsreceiver2_rx(
 	
 	output gps_led
 );
-
-/*   from SiGE SE4162T
+/*   Data Stream
+*    from SiGE SE4162T
 *
-	* SMSM SMSMSMSMSMSMSMSMSMSMSMSMSMSM SM SM
-	* IIQQ IIQQIIQQIIQQIIQQIIQQIIQQIIQQ II QQ 
-	* S    S   S   S   S   S   S   S    S       Sync
-	* CCCC CCCCCCCCCCCCCCCCCCCCCCCCCCCC CC CC   Clock
+	* Nibble
+	* SMSM  SMSMSMSMSMSMSMSMSMSMSMSMSMSM SM SM
+	* IIQQ  IIQQIIQQIIQQIIQQIIQQIIQQIIQQ II QQ 
+	* S     S   S   S   S   S   S   S    S       Sync
+	* CCCC  CCCCCCCCCCCCCCCCCCCCCCCCCCCC CC CC   Clock
 	*/
 
 /* Serial to Parallel */
@@ -62,7 +63,7 @@ assign rxb0_we = rxb_we_ctl;
 reg [3:0] lo;
 reg [3:0] hi;
 reg [1:0] load_nibble;
-/* two nibble as a byte */
+/* concatenate two nibble as one byte */
 always @(posedge gps_rec_clk) begin
 	if(load_nibble[0])
 		lo <= iqnibble_rx_data;
@@ -117,5 +118,12 @@ always @(*) begin
 		end
 	endcase
 end
+
+/* Debug */
+reg [22:0]  counter = 23'b0;
+always @(posedge gps_rec_clk) begin
+	counter <= counter + 1;
+end
+assign gps_led = counter[21];
 
 endmodule
