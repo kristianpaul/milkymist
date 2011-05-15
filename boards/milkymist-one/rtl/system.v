@@ -510,7 +510,7 @@ conbus5x7 #(
 	.s5_we_o(csrbrg_we),
 	.s5_cyc_o(csrbrg_cyc),
 	.s5_stb_o(csrbrg_stb),
-	.s5_ack_i(csrbrg_ack)
+	.s5_ack_i(csrbrg_ack),
 	// Slave 6
 	.s6_dat_i(gps_receiver_dat_r),
 	.s6_dat_o(gps_receiver_dat_w),
@@ -520,7 +520,7 @@ conbus5x7 #(
 	.s6_we_o(gps_receiver_we),
 	.s6_cyc_o(gps_receiver_cyc),
 	.s6_stb_o(gps_receiver_stb),
-	.s6_ack_i(gps_receiver_ack),
+	.s6_ack_i(gps_receiver_ack)
 );
 
 //------------------------------------------------------------------
@@ -710,6 +710,7 @@ csrbrg csrbrg(
 		|csr_dr_ir
 		|csr_dr_usb
 		|csr_dr_uart1
+		|csr_dr_gpsreceiver2
 	)
 );
 
@@ -952,7 +953,7 @@ sysctl #(
 	.csr_do(csr_dr_sysctl),
 
 	.gpio_inputs({pcb_revision, btn3, btn2, btn1}),
-	.gpio_outputs({led2, led1}),
+	.gpio_outputs({led1}),
 
 	.capabilities(capabilities),
 	.hard_reset(hard_reset)
@@ -1633,36 +1634,11 @@ uart #(
 	);
 
 //---------------------------------------------------------------------------
-// UART1
-//---------------------------------------------------------------------------
-uart #(
-	.csr_addr(5'h10),
-	.clk_freq(`CLOCK_FREQUENCY),
-	.baud(`BAUD_RATE)
-) uart1 (
-		.sys_clk(sys_clk),
-		.sys_rst(sys_rst),
-	
-		.csr_a(csr_a),
-		.csr_we(csr_we),
-		.csr_di(csr_dw),
-		.csr_do(csr_dr_uart1),
-	
-		.rx_irq(uart1rx_irq),
-		.tx_irq(uart1tx_irq),
-	
-		.uart_rx(uart1_rx),
-		.uart_tx(uart1_tx)
-	);
-
-endmodule
-
-//---------------------------------------------------------------------------
 //  L1 GPS Receiver
 //---------------------------------------------------------------------------
-gps_receiver #(
+gpsreceiver2 #(
 	.csr_addr(5'h11),
-) gps_receiver (
+) gpsreceiver2 (
 		.sys_clk(sys_clk),
 		.sys_rst(sys_rst),
 
@@ -1680,8 +1656,9 @@ gps_receiver #(
 		.csr_di(csr_dw),
 		.csr_do(csr_dr_gps_receiver),
 
-		.clk(gps_rec_clk),
-		.sync(gps_rec_sync),
-		.data(gps_rec_data),
-		.led(gps_led)
+		.gps_rec_clk(gps_rec_clk),
+		.gps_rec_sync(gps_rec_sync),
+		.gps_rec_data(gps_rec_data),
+		.gps_led(led2)
 	);
+endmodule
