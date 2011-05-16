@@ -375,8 +375,8 @@ wire		norflash_ack,
 // USB          0x20000000 (shadow @0xa0000000)
 // Ethernet     0x30000000 (shadow @0xb0000000)
 // SDRAM        0x40000000 (shadow @0xc0000000)
+// GPS Receiver 0x50000000 (shadow @0xd0000000)
 // CSR bridge   0x60000000 (shadow @0xe0000000)
-// GPS Receiver  0x70000000 (shadow @0xf0000000)
 
 // MSB (Bit 31) is ignored for slave address decoding
 conbus5x7 #(
@@ -385,8 +385,8 @@ conbus5x7 #(
 	.s2_addr(3'b010), // USB
 	.s3_addr(3'b011), // Ethernet
 	.s4_addr(2'b10),  // SDRAM
-	.s5_addr(2'b11),  // CSR
-	.s6_addr(3'b111)  // L1 GPS Receiver
+	.s5_addr(3'b111), // L1 GPS Receiver
+	.s6_addr(2'b11)   // CSR
 ) wbswitch (
 	.sys_clk(sys_clk),
 	.sys_rst(sys_rst),
@@ -502,25 +502,25 @@ conbus5x7 #(
 	.s4_stb_o(brg_stb),
 	.s4_ack_i(brg_ack),
 	// Slave 5
-	.s5_dat_i(csrbrg_dat_r),
-	.s5_dat_o(csrbrg_dat_w),
-	.s5_adr_o(csrbrg_adr),
+	.s5_dat_i(gps_receiver_dat_r),
+	.s5_dat_o(gps_receiver_dat_w),
+	.s5_adr_o(gps_receiver__adr),
 	.s5_cti_o(),
-	.s5_sel_o(),
-	.s5_we_o(csrbrg_we),
-	.s5_cyc_o(csrbrg_cyc),
-	.s5_stb_o(csrbrg_stb),
-	.s5_ack_i(csrbrg_ack),
+	.s5_sel_o(gps_receiver_sel),
+	.s5_we_o(gps_receiver_we),
+	.s5_cyc_o(gps_receiver_cyc),
+	.s5_stb_o(gps_receiver_stb),
+	.s5_ack_i(gps_receiver_ack),
 	// Slave 6
-	.s6_dat_i(gps_receiver_dat_r),
-	.s6_dat_o(gps_receiver_dat_w),
-	.s6_adr_o(gps_receiver__adr),
+	.s6_dat_i(csrbrg_dat_r),
+	.s6_dat_o(csrbrg_dat_w),
+	.s6_adr_o(csrbrg_adr),
 	.s6_cti_o(),
-	.s6_sel_o(gps_receiver_sel),
-	.s6_we_o(gps_receiver_we),
-	.s6_cyc_o(gps_receiver_cyc),
-	.s6_stb_o(gps_receiver_stb),
-	.s6_ack_i(gps_receiver_ack)
+	.s6_sel_o(),
+	.s6_we_o(csrbrg_we),
+	.s6_cyc_o(csrbrg_cyc),
+	.s6_stb_o(csrbrg_stb),
+	.s6_ack_i(csrbrg_ack)
 );
 
 //------------------------------------------------------------------

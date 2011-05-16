@@ -32,8 +32,8 @@ module conbus5x7 #(
 	parameter s2_addr = 3'b010,
 	parameter s3_addr = 3'b011,
 	parameter s4_addr = 2'b10,
-	parameter s5_addr = 2'b11,
-	parameter s6_addr = 3'b111
+	parameter s5_addr = 3'b111,
+	parameter s6_addr = 2'b11
 ) (
 	input sys_clk,
 	input sys_rst,
@@ -271,7 +271,7 @@ assign slave_sel[1] = (i_bus_m[`mbusw_ls-2 : `mbusw_ls-3-1] == s1_addr);
 assign slave_sel[2] = (i_bus_m[`mbusw_ls-2 : `mbusw_ls-3-1] == s2_addr);
 assign slave_sel[3] = (i_bus_m[`mbusw_ls-2 : `mbusw_ls-3-1] == s3_addr);
 assign slave_sel[4] = (i_bus_m[`mbusw_ls-2 : `mbusw_ls-2-1] == s4_addr);
-assign slave_sel[5] = (i_bus_m[`mbusw_ls-2 : `mbusw_ls-2-1] == s5_addr);
-assign slave_sel[6] = (i_bus_m[`mbusw_ls-2 : `mbusw_ls-3-1] == s6_addr);
+assign slave_sel[5] = (i_bus_m[`mbusw_ls-2 : `mbusw_ls-3-1] == s5_addr);
+assign slave_sel[6] = (i_bus_m[`mbusw_ls-2 : `mbusw_ls-2-1] == s6_addr);
 
 endmodule
