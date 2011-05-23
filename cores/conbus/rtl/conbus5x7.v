@@ -32,7 +32,7 @@ module conbus5x7 #(
 	parameter s2_addr = 3'b010,
 	parameter s3_addr = 3'b011,
 	parameter s4_addr = 2'b10,
-	parameter s5_addr = 3'b111,
+	parameter s5_addr = 3'b101,
 	parameter s6_addr = 2'b11
 ) (
 	input sys_clk,

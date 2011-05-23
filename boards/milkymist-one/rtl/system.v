@@ -385,7 +385,7 @@ conbus5x7 #(
 	.s2_addr(3'b010), // USB
 	.s3_addr(3'b011), // Ethernet
 	.s4_addr(2'b10),  // SDRAM
-	.s5_addr(3'b111), // L1 GPS Receiver
+	.s5_addr(3'b101), // L1 GPS Receiver
 	.s6_addr(2'b11)   // CSR
 ) wbswitch (
 	.sys_clk(sys_clk),
