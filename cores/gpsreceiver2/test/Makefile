@@ -9,7 +9,7 @@ cversim: $(SOURCES)
 	cver $(SOURCES)
 
 clean:
-	rm -f tb_gpsreceiver verilog.log gpsreceiver.vcd
+	rm -f tb_gpsreceiver verilog.log gpsreceiver.vcd *.vcd
 
 tb_gpsreceiver: $(SOURCES)
 	iverilog -o tb_gpsreceiver $(SOURCES)

@@ -1,5 +1,5 @@
 /*
- * Milkymist SoC GPS-SDR
+ * Milkymist SoC
  * Copyright (C) 2007, 2008, 2009, 2010, 2011 Sebastien Bourdeauducq
  * Copyleft 2011 Cristian Paul Pe~naranda Rojas
  *
@@ -18,50 +18,65 @@
 
 module tb_gpsreceiver();
 
-/* 100MHz system clock */
+   parameter PERIOD          = 20;
+   parameter real DUTY_CYCLE = 0.5;
+   parameter real DUTY_CYCLE2 = 0.5;
+   parameter OFFSET          = 0;
+   parameter OFFSET2          = 1;
+   parameter TSET            = 3;
+   parameter THLD            = 3;
+   parameter NWS             = 3;
+
+   initial begin  // Initialize GPS Receiver Outs
+	gps_rec_clk = 0;
+	gps_rec_sync = 0;
+	gps_rec_data = 0;
+   end
+
+   initial  begin  // Process for clk 8Mhz?
+     forever
+       begin
+         gps_rec_clk = 1'b0;
+         #(PERIOD-(PERIOD*DUTY_CYCLE)) gps_rec_clk = 1'b1;
+         #(PERIOD*DUTY_CYCLE);
+       end
+   end
+
+
+   initial  begin  // Process for data TBD
+     forever
+       begin
+         gps_rec_data = 1'b0;
+         #((PERIOD+80)-(PERIOD*DUTY_CYCLE)) gps_rec_data = 1'b1;
+         #(PERIOD*DUTY_CYCLE);
+       end
+   end
+
+   initial  begin  // Process for sync clk/4
+     forever
+       begin
+         gps_rec_sync = 1'b0;
+         #((PERIOD+60)-(PERIOD*DUTY_CYCLE)) gps_rec_sync = 1'b1;
+         #(PERIOD*DUTY_CYCLE);
+       end
+   end
+
+
+//100MHz system clock 
 reg sys_clk;
 initial sys_clk = 1'b0;
 always #5 sys_clk = ~sys_clk;
 
-/* 20MHz RX clock */
+/* 8MHz RX clock 
 reg gps_rec_clk;
-/*initial gps_rec_clk = 1'b0;
-always #20 gps_rec_clk = ~gps_rec_clk; */
+initial gps_rec_clk = 1'b0;
+always #20 gps_rec_clk = ~gps_rec_clk;
 
-initial  begin  // Process for clk 8Mhz?
-forever
-begin
-	gps_rec_clk = 1'b0;
-	#10 gps_rec_clk = 1'b1;
-	#10;
-end
-end
-
-/* data */
-initial  begin  // Process for data, a loop of 1 2 4 8...
-forever
-begin
-	gps_rec_data = 1'b0;
-	#90 gps_rec_data = 1'b1;
-	#10;
-end
-end
-
-
-
-/* 20MHz RX clock */
-/*initial gps_rec_sync = 1'b0;
-always #20 gps_rec_sync = ~gps_rec_sync; */
-
-initial begin  // Process for sync clk/4
-forever
-begin
-	gps_rec_sync = 1'b0;
-	#50 gps_rec_sync = 1'b1;
-	#10;
-end
-end
-
+/* Sync 
+reg reg_gps_rec_sync;
+initial gps_rec_sync = 1'b0;
+always #60 gps_rec_sync = ~gps_rec_sync;
+*/
 
 reg sys_rst;
 
@@ -80,6 +95,7 @@ wire wb_ack_o;
 
 reg gps_rec_data;
 reg gps_rec_sync;
+reg gps_rec_clk;
 
 gpsreceiver2 #(
 	.csr_addr(5'h0)
@@ -113,7 +129,7 @@ begin
 end
 endtask
 
-/*task csrwrite; 
+/*task csrwrite;
 input [31:0] address;
 input [31:0] data;
 begin
@@ -124,7 +140,7 @@ begin
 	$display("Configuration Write: %x=%x", address, data);
 	csr_we = 1'b0;
 end
-endtask */
+endtask
 
 task csrread;
 input [31:0] address;
@@ -134,7 +150,7 @@ begin
 	$display("Configuration Read : %x=%x", address, csr_do);
 end
 endtask
-
+*/
 
 task wbwrite;
 input [31:0] address;
@@ -179,27 +195,28 @@ begin
 	wb_we_i = 1'b0;
 end
 endtask
-
-// TODO gps_rec_data need to be loaded from a 32 Bit register
+// TODO gps_rec_data need to be loaded from a 8 Bit register
 // Every 4 bits synced
-/*integer cycle;
+integer cycle;
 initial cycle = 0;
-always @(posedge gps_rec_clk) begin
+//reg data 8'b00011011; //0, 1, -0, -1
+/*always @(posedge gps_rec_clk) begin
 	cycle <= cycle + 1;
 	gps_rec_data <= cycle;
 	if(gps_rec_sync) begin
 		//$display("rx: %x", gps_rec_data);
-		if((cycle % 16) == 15) begin
-			gps_rec_sync <= 1'b0;
+		if((cycle % 16) == 16) begin
+			gps_rec_data <= 1'b0;
+			//$display("** stopping transmission");
 		end
-	end else begin
-		if((cycle % 15) == 13) begin
-			gps_rec_sync <= 1'b1;
-		end
-	end
+	        /* having a loop-like cycle, like a parallel to serial module */
+//	end
+//end
+
+/*always @(posedge phy_tx_clk) begin
+	if(phy_tx_en)
+		$display("tx: %x", phy_tx_data);
 end*/
-
-
 
 initial begin
 	/* Reset / Initialize our logic */
@@ -209,7 +226,6 @@ initial begin
 	csr_di = 32'd0;
 	csr_we = 1'b0;
 	gps_rec_sync = 1'b0;
-	gps_rec_data = 1'b0;
 
 	waitclock;
 
@@ -225,31 +241,22 @@ initial begin
 	//csrwrite(32'h08, 1);
 	/*wbwrite(32'h1000, 32'h12345678);
 	wbread(32'h1000); */
-
-	#5000;
 	wbwrite(32'h0000, 32'h12345678);
 	wbread(32'h0000);
-	csrread(32'h01);
-
-	wbread(32'h0004);
-	csrread(32'h01);
-	wbread(32'h0005);
-	csrread(32'h01);
-	wbread(32'h0006);
-	csrread(32'h01);
-	wbread(32'h0007);
 	//csrwrite(32'h18, 10);
 	//csrwrite(32'h10, 1);
 
+	#5000;
 	
+	//csrread(32'h08);
 	//csrread(32'h0C);
 	//csrread(32'h10);
 	//csrread(32'h14);
 	
-	/*wbread(32'h0000);
+/*	wbread(32'h0000);
 	wbread(32'h0004);
 	wbread(32'h0008);
-	wbread(32'h0800);
+/*	wbread(32'h0800);
 	wbread(32'h0804);
 	wbread(32'h0808);
 	*/
