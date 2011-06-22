@@ -309,9 +309,9 @@ NET "exp(*)" IOSTANDARD = LVCMOS33;
 NET "exp(*)" PULLDOWN;
 
 # ==== L1 GPS Receiver ====
-NET "gps_rec_clk" LOC = A20 | IOSTANDARD = LVCMOS33;
-NET "gps_rec_sync" LOC = A21 | IOSTANDARD = LVCMOS33;
-NET "gps_rec_data" LOC = B21 | IOSTANDARD = LVCMOS33;
+NET "gps_rec_sync" LOC = A20 | IOSTANDARD = LVCMOS33;
+NET "gps_rec_data" LOC = A21 | IOSTANDARD = LVCMOS33;
+NET "gps_rec_clk" LOC = B21 | IOSTANDARD = LVCMOS33;
 #NET "gps_led" LOC = B22 | IOSTANDARD = LVCMOS33 | SLEW = QUIETIO;
 
 # ==== UART1 ====
