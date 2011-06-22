@@ -1,7 +1,7 @@
 /*
- * Milkymist SoC
+ * Milkymist SoC GPS-SDR
  * Copyright (C) 2007, 2008, 2009, 2010, 2011 Sebastien Bourdeauducq
- * Copyleft 2011 Cristian Paul Pen~aranda Rojas
+ * Copyleft 2011 Cristian Paul Peñaranda Rojas
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -42,11 +42,18 @@ module gpsreceiver2 #(
         input gps_rec_clk,
 	input gps_rec_sync,
 	input gps_rec_data,
+
 	/* Debug */
 	output gps_led 	
 );
-/* Config */
 
+wire rxb0_clk;
+wire [7:0] rxb0_dat;
+wire [10:0] rxb0_adr;
+wire rxb0_we;
+wire [10:0] rx_count_0;
+
+/* Config */
 gpsreceiver2_ctlif #(
 	.csr_addr(csr_addr)
 ) ctlif (
@@ -57,17 +64,16 @@ gpsreceiver2_ctlif #(
 	.csr_we(csr_we),
 	.csr_di(csr_di),
 	.csr_do(csr_do),
-	.rx_count_0(rx_count_0)
+
+	.rx_count_0(rx_count_0),
+	.r_enable(r_enable),
+	.r_reset(r_reset)
 );
 
 /* Buffer */
-wire [7:0] rxb0_dat;
-wire [10:0] rxb0_adr;
-wire rxb0_we;
 gpsreceiver2_memory memory(
 	.sys_clk(sys_clk),
 	.sys_rst(sys_rst),
-	.gps_rec_clk(gps_rec_clk),
 
 	.wb_adr_i(wb_adr_i),
 	.wb_dat_o(wb_dat_o),
@@ -78,24 +84,33 @@ gpsreceiver2_memory memory(
 	.wb_ack_o(wb_ack_o),
 	.wb_we_i(wb_we_i),
 	
+	.rxb0_clk(rxb0_clk),
 	.rxb0_dat(rxb0_dat),
 	.rxb0_adr(rxb0_adr),
 	.rxb0_we(rxb0_we)
 );
 
-/* From GPS */
+/* From GPS Receiver */
 gpsreceiver2_rx rx(
-	.rxb0_dat(rxb0_dat),
-	.rxb0_adr(rxb0_adr),
-	.rxb0_we(rxb0_we),
-
 	.gps_rec_clk(gps_rec_clk),
 	.gps_rec_sync(gps_rec_sync),
 	.gps_rec_data(gps_rec_data),
-	.gps_led(gps_led),
 
+	.rxb0_clk(rxb0_clk),
+	.rxb0_dat(rxb0_dat),
+
+	.gps_led(gps_led)
+);
+
+/* Counter */
+gpsreceiver2_counter counter(
+	.rxb0_clk(rxb0_clk),
+	.rxb0_adr(rxb0_adr),
+	.rxb0_we(rxb0_we),
+
+	.r_enable(r_enable),
+	.r_reset(r_reset),
 	.rx_count_0(rx_count_0)
-
 );
 
 endmodule
