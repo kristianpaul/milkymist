@@ -1,7 +1,7 @@
 /*
- * GPS-SDR for Milkymist SoC
+ * Milkymist SoC GPS-SDR
  * Copyright (C) 2007, 2008, 2009, 2010, 2011 Sebastien Bourdeauducq
- * Copyleft 2011 Cristian Paul Pen~arada Rojas
+ * Copyleft 2011 Cristian Paul Peñarada Rojas
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -27,38 +27,44 @@ module gpsreceiver2_ctlif #(
 	input [31:0] csr_di,
 	output reg [31:0] csr_do,
 	
-	input [10:0] rx_count_0
+	input [10:0] rx_count_0,
+	output reg r_enable,
+	output reg r_reset
+
 );
-
-
 wire csr_selected = csr_a[14:10] == csr_addr;
+
+/* Sync counter  */
+reg [10:0] r_count;
+reg [10:0] r_count1;
+always @(posedge sys_clk) begin
+	r_count1 <= rx_count_0;
+	r_count <= r_count1;
+
+end
 
 always @(posedge sys_clk) begin
 	if(sys_rst) begin
 		csr_do <= 32'd0;
+		r_enable <= 1'd1;
+		r_reset <= 1'd0;
 
 	end else begin
 		csr_do <= 32'd0;
 		if(csr_selected) begin
 			if(csr_we) begin
-				/*case(csr_a[2:0])
-
-					3'd1: begin
-						lk <= csr_di[3];
-						oe <= csr_di[2];
-						do <= csr_di[0];
-					end
-
-					3'd2: s0_state <= csr_di[1:0];
-					// 'd3 rx_count_0 is read-only
-					3'd4: s1_state <= csr_di[1:0];
-				endcase */
+				case(csr_a[2:0])
+					3'd0: r_reset <= csr_di[0];
+					3'd1: r_enable <= csr_di[0];
+				endcase
 			end
 			case(csr_a[2:0])
-
-				3'd1: csr_do <= rx_count_0;
+				3'd0: csr_do <= r_reset;
+				3'd1: csr_do <= r_enable;
+				3'd2: csr_do <= r_count;
+				3'd4: csr_do <= 32'h11223344;
 			endcase
-		end /* if(csr_selected) */
+		end
 	end
 end
 endmodule
