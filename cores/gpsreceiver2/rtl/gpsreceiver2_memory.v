@@ -1,5 +1,5 @@
 /*
- * Milkymist SoC
+ * Milkymist SoC GPS-SDR
  * Copyright (C) 2007, 2008, 2009, 2010, 2011 Sebastien Bourdeauducq
  * Copyleft 2011 Cristian Paul Pen~arada Rojas
  *
@@ -19,7 +19,7 @@
 module gpsreceiver2_memory(
 	input sys_clk,
 	input sys_rst,
-	input gps_rec_clk,
+	input rxb0_clk,
 	
 	input [31:0] wb_adr_i,
 	output [31:0] wb_dat_o,
@@ -50,8 +50,10 @@ RAMB16BWER #(
 	.EN_RSTRAM_A("FALSE"),
 	.EN_RSTRAM_B("FALSE"),
 	.SIM_DEVICE("SPARTAN6"),
-	.WRITE_MODE_A("WRITE_FIRST"),
-	.WRITE_MODE_B("WRITE_FIRST")
+	.WRITE_MODE_A("READ_FIRST"),
+	.WRITE_MODE_B("READ_FIRST")
+//	.WRITE_MODE_A("WRITE_FIRST"),
+//	.WRITE_MODE_B("WRITE_FIRST")
 ) rxb0 (
 	.DIA(wb_dat_i_le),
 	.DIPA(4'd0),
@@ -66,10 +68,10 @@ RAMB16BWER #(
 	.DIPB(1'd0),
 	.DOB(),
 	.ADDRB({rxb0_adr, 3'd0}),
-	.WEB({4{rxb0_we}}),
+	.WEB({4{1'b1}}), //HACK
 	.ENB(1'b1),
 	.RSTB(1'b0),
-	.CLKB(gps_rec_clk)
+	.CLKB(rxb0_clk)
 );
 
 always @(posedge sys_clk) begin
