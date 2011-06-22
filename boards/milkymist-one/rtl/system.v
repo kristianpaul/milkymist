@@ -372,21 +372,19 @@ wire		norflash_ack,
 //---------------------------------------------------------------------------
 // norflash     0x00000000 (shadow @0x80000000)
 // debug        0x10000000 (shadow @0x90000000)
-// USB          0x20000000 (shadow @0xa0000000)
+// GPS Receiver 0x20000000 (shadow @0xa0000000) //USB was here..
 // Ethernet     0x30000000 (shadow @0xb0000000)
 // SDRAM        0x40000000 (shadow @0xc0000000)
-// GPS Receiver 0x50000000 (shadow @0xd0000000)
 // CSR bridge   0x60000000 (shadow @0xe0000000)
 
 // MSB (Bit 31) is ignored for slave address decoding
 conbus5x7 #(
 	.s0_addr(3'b000), // norflash
 	.s1_addr(3'b001), // debug
-	.s2_addr(3'b010), // USB
+	.s2_addr(3'b010), // L1 GPS Receiver
 	.s3_addr(3'b011), // Ethernet
 	.s4_addr(2'b10),  // SDRAM
-	.s5_addr(3'b101), // L1 GPS Receiver
-	.s6_addr(2'b11)   // CSR
+	.s5_addr(2'b11)   // CSR
 ) wbswitch (
 	.sys_clk(sys_clk),
 	.sys_rst(sys_rst),
@@ -472,7 +470,17 @@ conbus5x7 #(
 	.s1_stb_o(monitor_stb),
 	.s1_ack_i(monitor_ack),
 	// Slave 2
-	.s2_dat_i(usb_dat_r),
+	.s2_dat_i(gps_receiver_dat_r),
+	.s2_dat_o(gps_receiver_dat_w),
+	.s2_adr_o(gps_receiver__adr),
+	.s2_cti_o(),
+	.s2_sel_o(gps_receiver_sel),
+	.s2_we_o(gps_receiver_we),
+	.s2_cyc_o(gps_receiver_cyc),
+	.s2_stb_o(gps_receiver_stb),
+	.s2_ack_i(gps_receiver_ack),
+	// Slave 2
+	/*.s2_dat_i(usb_dat_r),
 	.s2_dat_o(usb_dat_w),
 	.s2_adr_o(usb_adr),
 	.s2_cti_o(),
@@ -480,7 +488,7 @@ conbus5x7 #(
 	.s2_we_o(usb_we),
 	.s2_cyc_o(usb_cyc),
 	.s2_stb_o(usb_stb),
-	.s2_ack_i(usb_ack),
+	.s2_ack_i(usb_ack),*/
 	// Slave 3
 	.s3_dat_i(eth_dat_r),
 	.s3_dat_o(eth_dat_w),
@@ -502,7 +510,7 @@ conbus5x7 #(
 	.s4_stb_o(brg_stb),
 	.s4_ack_i(brg_ack),
 	// Slave 5
-	.s5_dat_i(gps_receiver_dat_r),
+	/*.s5_dat_i(gps_receiver_dat_r),
 	.s5_dat_o(gps_receiver_dat_w),
 	.s5_adr_o(gps_receiver__adr),
 	.s5_cti_o(),
@@ -510,17 +518,17 @@ conbus5x7 #(
 	.s5_we_o(gps_receiver_we),
 	.s5_cyc_o(gps_receiver_cyc),
 	.s5_stb_o(gps_receiver_stb),
-	.s5_ack_i(gps_receiver_ack),
+	.s5_ack_i(gps_receiver_ack),*/
 	// Slave 6
-	.s6_dat_i(csrbrg_dat_r),
-	.s6_dat_o(csrbrg_dat_w),
-	.s6_adr_o(csrbrg_adr),
-	.s6_cti_o(),
-	.s6_sel_o(),
-	.s6_we_o(csrbrg_we),
-	.s6_cyc_o(csrbrg_cyc),
-	.s6_stb_o(csrbrg_stb),
-	.s6_ack_i(csrbrg_ack)
+	.s5_dat_i(csrbrg_dat_r),
+	.s5_dat_o(csrbrg_dat_w),
+	.s5_adr_o(csrbrg_adr),
+	.s5_cti_o(),
+	.s5_sel_o(),
+	.s5_we_o(csrbrg_we),
+	.s5_cyc_o(csrbrg_cyc),
+	.s5_stb_o(csrbrg_stb),
+	.s5_ack_i(csrbrg_ack)
 );
 
 //------------------------------------------------------------------
@@ -546,7 +554,7 @@ wire [31:0]	csr_dr_uart,
 		csr_dr_ir,
 		csr_dr_usb,
 		csr_dr_uart1,
-		csr_dr_gps_receiver;
+		csr_dr_gpsreceiver;
 
 //------------------------------------------------------------------
 // FML master wires
@@ -710,7 +718,7 @@ csrbrg csrbrg(
 		|csr_dr_ir
 		|csr_dr_usb
 		|csr_dr_uart1
-		|csr_dr_gpsreceiver2
+		|csr_dr_gpsreceiver
 	)
 );
 
@@ -1637,7 +1645,7 @@ uart #(
 //  L1 GPS Receiver
 //---------------------------------------------------------------------------
 gpsreceiver2 #(
-	.csr_addr(5'h11),
+	.csr_addr(5'hf),
 ) gpsreceiver2 (
 		.sys_clk(sys_clk),
 		.sys_rst(sys_rst),
@@ -1654,7 +1662,7 @@ gpsreceiver2 #(
 		.csr_a(csr_a),
 		.csr_we(csr_we),
 		.csr_di(csr_dw),
-		.csr_do(csr_dr_gps_receiver),
+		.csr_do(csr_dr_gpsreceiver),
 
 		.gps_rec_clk(gps_rec_clk),
 		.gps_rec_sync(gps_rec_sync),
