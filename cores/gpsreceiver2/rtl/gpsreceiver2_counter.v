@@ -37,4 +37,6 @@ always @(posedge rxb0_clk) begin
 		rx_count_0 <= rx_count_0 + 11'd1;
 end
 
+assign rxb0_adr = rx_count_0;
+
 endmodule
