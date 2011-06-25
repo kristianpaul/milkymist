@@ -41,6 +41,7 @@ wire [1:0] wb_buf = wb_adr_i[12:11];
 wire [31:0] wb_dat_i_le = {wb_dat_i[7:0], wb_dat_i[15:8], wb_dat_i[23:16], wb_dat_i[31:24]};
 wire [3:0] wb_sel_i_le = {wb_sel_i[0], wb_sel_i[1], wb_sel_i[2], wb_sel_i[3]};
 
+wire [31:0] rxb0_wbdat;
 RAMB16BWER #(
 	.DATA_WIDTH_A(36),
 	.DATA_WIDTH_B(9),
@@ -56,7 +57,7 @@ RAMB16BWER #(
 ) rxb0 (
 	.DIA(wb_dat_i_le),
 	.DIPA(4'd0),
-	.DOA(rxb0_dat),
+	.DOA(rxb0_wbdat),
 	.ADDRA({wb_adr_i[10:2], 5'd0}),
 	.WEA({4{wb_en & wb_we_i & (wb_buf == 2'b00)}} & wb_sel_i_le),
 	.ENA(1'b1),
