@@ -139,8 +139,8 @@ module system(
 	input [5:0] exp,
 
 	// UART1 
-	input uart1_rx,
-	output uart1_tx,
+	//input uart1_rx,
+	//output uart1_tx,
 	
 	// L1 GPS Receiver	
 	input gps_rec_clk,
@@ -553,7 +553,7 @@ wire [31:0]	csr_dr_uart,
 		csr_dr_dmx_rx,
 		csr_dr_ir,
 		csr_dr_usb,
-		csr_dr_uart1,
+//		csr_dr_uart1,
 		csr_dr_gpsreceiver;
 
 //------------------------------------------------------------------
@@ -717,7 +717,7 @@ csrbrg csrbrg(
 		|csr_dr_dmx_rx
 		|csr_dr_ir
 		|csr_dr_usb
-		|csr_dr_uart1
+//		|csr_dr_uart1
 		|csr_dr_gpsreceiver
 	)
 );
@@ -781,13 +781,13 @@ wire midirx_irq;
 wire miditx_irq;
 wire ir_irq;
 wire usb_irq;
-wire uart1rx_irq;
-wire uart1tx_irq;
+//wire uart1rx_irq;
+//wire uart1tx_irq;
 
 wire [31:0] cpu_interrupt;
 assign cpu_interrupt = {14'd0,
-	uart1tx_irq,
-	uart1rx_irq,
+//	uart1tx_irq,
+	//uart1rx_irq,
 	usb_irq,
 	ir_irq,
 	miditx_irq,
@@ -1621,7 +1621,7 @@ FD workaround(
 //---------------------------------------------------------------------------
 // UART1
 //---------------------------------------------------------------------------
-uart #(
+/*uart #(
 	.csr_addr(5'h10),
 	.clk_freq(`CLOCK_FREQUENCY),
 	.baud(`BAUD_RATE)
@@ -1640,7 +1640,7 @@ uart #(
 		.uart_rx(uart1_rx),
 		.uart_tx(uart1_tx)
 	);
-
+*/
 //---------------------------------------------------------------------------
 //  L1 GPS Receiver
 //---------------------------------------------------------------------------
