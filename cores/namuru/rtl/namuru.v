@@ -43,8 +43,10 @@ module namuru #(
 	input gps_rec_sign,
 	input gps_rec_mag,
 
+	output accum_int
+
 	/* Debug */
-	output gps_led
+	//output gps_led
 	//output namuru_nco
 );
 
@@ -68,8 +70,8 @@ wire [28:0] ch0_carr_nco;
 wire [27:0] ch0_code_nco;
 wire [10:0] ch0_code_slew;
 wire [10:0] ch0_epoch_load;
-wire ch0_prn_key_enable, 
-wire ch0_slew_enable; 
+wire ch0_prn_key_enable; 
+wire ch0_slew_enable;
 wire ch0_epoch_enable;
 wire ch0_dump;
 wire [15:0] ch0_i_early, ch0_q_early, ch0_i_prompt, ch0_q_prompt, ch0_i_late, ch0_q_late;
@@ -90,6 +92,9 @@ namuru_ctlif #(
 	.csr_di(csr_di),
 	.csr_do(csr_do),
 
+	/* int */
+	.accum_int(accum_int),
+
 	/* status */
 	/* wires from time base registers */
 	
@@ -101,30 +106,30 @@ namuru_ctlif #(
 	.accum_enable(accum_enable_s),
 	.accum_sample_enable(accum_sample_enable),
 	.tic_count(tic_count),
-	.accum_count(accum_count)
+	.accum_count(accum_count),
 
 	/* fow now ctlif but channels should be mapped to wishbone TODO*/
 
 	/* regs and wires from channel 0 */
-	.ch0_prn_key(ch0_prn_key);
-	.ch0_carr_nco(ch0_carr_nco);
-	.ch0_code_nco(ch0_code_nco);
-	.ch0_code_slew(ch0_code_slew);
-	.ch0_epoch_load(ch0_epoch_load);
-	.ch0_prn_key_enable(ch0_prn_key_enable); 
-	.ch0_slew_enable(ch0_slew_enable);
-	.ch0_epoch_enable(ch0_epoch_enable);
-	.ch0_dump(ch0_dump);
-	.ch0_i_early(ch0_i_early);
-	.ch0_q_early(ch0_q_earlY);
-	.ch0_i_prompt(ch0_i_prompt);
-	.ch0_q_prompt(ch0_q_prompt);
-	.ch0_i_late(ch0_i_lat);
-	.ch0_q_late(ch0_q_late);
-	.ch0_carrier_val(ch0_carrier_val);
-	.ch0_code_val(ch0_code_val);
-	.ch0_epoch(ch0_epoch);
-	.ch0_epoch_check(ch0_epoch_chec);
+	.ch0_prn_key(ch0_prn_key),
+	.ch0_carr_nco(ch0_carr_nco),
+	.ch0_code_nco(ch0_code_nco),
+	.ch0_code_slew(ch0_code_slew),
+	.ch0_epoch_load(ch0_epoch_load),
+	.ch0_prn_key_enable(ch0_prn_key_enable), 
+	.ch0_slew_enable(ch0_slew_enable),
+	.ch0_epoch_enable(ch0_epoch_enable),
+	.ch0_dump(ch0_dump),
+	.ch0_i_early(ch0_i_early),
+	.ch0_q_early(ch0_q_earlY),
+	.ch0_i_prompt(ch0_i_prompt),
+	.ch0_q_prompt(ch0_q_prompt),
+	.ch0_i_late(ch0_i_lat),
+	.ch0_q_late(ch0_q_late),
+	.ch0_carrier_val(ch0_carrier_val),
+	.ch0_code_val(ch0_code_val),
+	.ch0_epoch(ch0_epoch),
+	.ch0_epoch_check(ch0_epoch_chec)
 );
 
 /* Baseband */
@@ -136,7 +141,7 @@ namuru_ctlif #(
 //);
 
 //time base
-se tb (
+time_base tb (
 	.clk(gps_rec_clk), 
 	.rstn(rstn),
 	.tic_divide(prog_tic),
