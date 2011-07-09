@@ -144,9 +144,12 @@ module system(
 	
 	// L1 GPS Receiver	
 	input gps_rec_clk,
-	input gps_rec_sync,
-	input gps_rec_data,
-	output gps_led,
+	input gps_rec_sign,
+	input gps_rec_mag,
+	//output gps_led,
+	//output gps_debug_purple,
+	//output gps_debug_blue,
+	//output gps_debug_green,
 
 	// PCB revision
 	input [3:0] pcb_revision
@@ -308,8 +311,8 @@ wire [31:0]	norflash_adr,
 		usb_adr,
 		eth_adr,
 		brg_adr,
-		csrbrg_adr,
-		gps_receiver_adr;
+		csrbrg_adr;
+		//gps_receiver_adr;
 
 wire [2:0]	brg_cti;
 
@@ -324,48 +327,48 @@ wire [31:0]	norflash_dat_r,
 		brg_dat_r,
 		brg_dat_w,
 		csrbrg_dat_r,
-		csrbrg_dat_w,
-		gps_receiver_dat_r,
-		gps_receiver_dat_w;
+		csrbrg_dat_w;
+		//gps_receiver_dat_r,
+		//gps_receiver_dat_w;
 
 wire [3:0]	norflash_sel,
 		monitor_sel,
 		usb_sel,
 		eth_sel,
-		brg_sel,
-		gps_receiver_sel;
+		brg_sel;
+		//gps_receiver_sel;
 
 wire		norflash_we,
 		monitor_we,
 		usb_we,
 		eth_we,
 		brg_we,
-		csrbrg_we,
-		gps_receiver_we;
+		csrbrg_we;
+	//	gps_receiver_we;
 
 wire		norflash_cyc,
 		monitor_cyc,
 		usb_cyc,
 		eth_cyc,
 		brg_cyc,
-		csrbrg_cyc,
-		gps_receiver_cyc;
+		csrbrg_cyc;
+//		gps_receiver_cyc;
 
 wire		norflash_stb,
 		monitor_stb,
 		usb_stb,
 		eth_stb,
 		brg_stb,
-		csrbrg_stb,
-		gps_receiver_stb;
+		csrbrg_stb;
+		//gps_receiver_stb;
 
 wire		norflash_ack,
 		monitor_ack,
 		usb_ack,
 		eth_ack,
 		brg_ack,
-		csrbrg_ack,
-		gps_receiver_ack;
+		csrbrg_ack;
+//		gps_receiver_ack;
 
 //---------------------------------------------------------------------------
 // Wishbone switch
@@ -470,6 +473,16 @@ conbus5x7 #(
 	.s1_stb_o(monitor_stb),
 	.s1_ack_i(monitor_ack),
 	// Slave 2
+	.s2_dat_i(32'd0),
+	.s2_dat_o(),
+	.s2_adr_o(),
+	.s2_cti_o(),
+	.s2_sel_o(),
+	.s2_we_o(),
+	.s2_cyc_o(),
+	.s2_stb_o(),
+	.s2_ack_i(1'd0),
+	/* Slave 2
 	.s2_dat_i(gps_receiver_dat_r),
 	.s2_dat_o(gps_receiver_dat_w),
 	.s2_adr_o(gps_receiver__adr),
@@ -478,7 +491,7 @@ conbus5x7 #(
 	.s2_we_o(gps_receiver_we),
 	.s2_cyc_o(gps_receiver_cyc),
 	.s2_stb_o(gps_receiver_stb),
-	.s2_ack_i(gps_receiver_ack),
+	.s2_ack_i(gps_receiver_ack), */
 	// Slave 2
 	/*.s2_dat_i(usb_dat_r),
 	.s2_dat_o(usb_dat_w),
@@ -554,7 +567,8 @@ wire [31:0]	csr_dr_uart,
 		csr_dr_ir,
 		csr_dr_usb,
 //		csr_dr_uart1,
-		csr_dr_gpsreceiver;
+//		csr_dr_gpsreceiver;
+		csr_dr_namuru;
 
 //------------------------------------------------------------------
 // FML master wires
@@ -718,7 +732,8 @@ csrbrg csrbrg(
 		|csr_dr_ir
 		|csr_dr_usb
 //		|csr_dr_uart1
-		|csr_dr_gpsreceiver
+//		|csr_dr_gpsreceiver
+		|csr_dr_namuru
 	)
 );
 
@@ -781,6 +796,7 @@ wire midirx_irq;
 wire miditx_irq;
 wire ir_irq;
 wire usb_irq;
+wire namuru_irq;
 //wire uart1rx_irq;
 //wire uart1tx_irq;
 
@@ -788,6 +804,7 @@ wire [31:0] cpu_interrupt;
 assign cpu_interrupt = {14'd0,
 //	uart1tx_irq,
 	//uart1rx_irq,
+	namuru_irq,
 	usb_irq,
 	ir_irq,
 	miditx_irq,
@@ -1644,7 +1661,7 @@ FD workaround(
 //---------------------------------------------------------------------------
 //  L1 GPS Receiver
 //---------------------------------------------------------------------------
-gpsreceiver2 #(
+/* gpsreceiver2 #(
 	.csr_addr(5'hf),
 ) gpsreceiver2 (
 		.sys_clk(sys_clk),
@@ -1667,6 +1684,30 @@ gpsreceiver2 #(
 		.gps_rec_clk(gps_rec_clk),
 		.gps_rec_sync(gps_rec_sync),
 		.gps_rec_data(gps_rec_data),
-		.gps_led(led2)
+		.gps_led(led2),
+		.gps_rec_overflow(gps_debug_purple),
+		.gps_rec_rxb0_clk(gps_debug_blue)
+		//.gps_rec_data_debug(gps_debug_green)
+	);*/
+//---------------------------------------------------------------------------
+// Namuru Correlator
+//---------------------------------------------------------------------------
+namuru #(
+	.csr_addr(5'h10),
+) namuru (
+		.sys_clk(sys_clk),
+		.sys_rst(sys_rst),
+	
+		.csr_a(csr_a),
+		.csr_we(csr_we),
+		.csr_di(csr_dw),
+		.csr_do(csr_dr_namuru),
+	
+		.accum_int(namuru_irq),
+
+		.gps_rec_clk(gps_rec_clk),
+		.gps_rec_sign(gps_rec_sign),
+		.gps_rec_mag(gps_rec_mag)
 	);
+
 endmodule
