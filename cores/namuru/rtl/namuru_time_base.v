@@ -48,7 +48,7 @@ module time_base (clk, rstn, tic_divide, accum_divide, sample_clk, pre_tic_enabl
    
    // divide by 7 for RF front end (GP2015) sample clock
    // 4 bit counter
-   lpm_counter sc(
+   /*lpm_counter sc(
 		.clock(clk),
 		.sclr(!rstn),
 		.q(sc_q)
@@ -56,8 +56,9 @@ module time_base (clk, rstn, tic_divide, accum_divide, sample_clk, pre_tic_enabl
 
    defparam 	 sc.lpm_width= 4;
    defparam 	 sc.lpm_modulus= 7;
+   */
 
-   assign 	 sample_clk = (sc_q == 0)? 1:0;
+   //assign 	 sample_clk = (sc_q == 0)? 1:0;
    assign    accum_sample_enable = (sc_q == 3)? 1:0; // accumulator sample pulse
    
   //--------------------------------------------------
@@ -68,7 +69,7 @@ module time_base (clk, rstn, tic_divide, accum_divide, sample_clk, pre_tic_enabl
   // tic period = (tic_divide + 1) / 40MHz
   // For default tic period (0.1s) tic_divide = 0x3D08FF
   //----------------------------------------------------   
-   lpm_counter te(
+/*   lpm_counter te(
 		  .clock(clk),
 		  .sclr(!rstn),
 		  .sload(pre_tic_enable),
@@ -76,7 +77,19 @@ module time_base (clk, rstn, tic_divide, accum_divide, sample_clk, pre_tic_enabl
 		  .q(tic_q)
 		  );
    defparam 	 te.lpm_direction="DOWN";
-   defparam 	 te.lpm_width=24;
+   defparam 	 te.lpm_width=24; */
+
+   reg [23:0] tmp_count_te;
+   always @(posedge clk or posedge pre_tic_enable or posedge rstn) begin
+	   if(rstn)
+		   tmp_count_te <=  24'b111111111111111111111111;
+	   else if (pre_tic_enable)
+		   tmp_count_te <= accum_divide;
+	   else 
+		   tmp_count_te <= tmp_count_te - 1'b1;
+   end
+   assign tic_q = tmp_count_te;
+   
  
   // The preTIC comes first latching the code_nco,
   // followed by the TIC latching everything else.
@@ -114,7 +127,7 @@ module time_base (clk, rstn, tic_divide, accum_divide, sample_clk, pre_tic_enabl
   // accum_divide = 40000000 * 0.0005 - 1
   // accum_divide = 0x4E1F	     
   //----------------------------------------------------------
-   lpm_counter ae(
+/*   lpm_counter ae(
 		  .clock(clk),
 		  .sclr(!rstn),
 		  .sload(accum_enable),
@@ -123,6 +136,17 @@ module time_base (clk, rstn, tic_divide, accum_divide, sample_clk, pre_tic_enabl
 		  );
    defparam 	 ae.lpm_direction="DOWN";
    defparam 	 ae.lpm_width=24;
+*/
+   reg [23:0] tmp_count_ae;
+   always @(posedge clk or posedge accum_enable or posedge rstn) begin
+	   if(rstn)
+		   tmp_count_ae <=  24'b111111111111111111111111;
+	   else if (accum_enable)
+		   tmp_count_ae <= accum_divide;
+	   else 
+		   tmp_count_ae <= tmp_count_ae - 1'b1;
+   end
+   assign accum_q = tmp_count_ae;
 
    assign 	 accum_enable = (accum_q == 0)? 1:0;
   
