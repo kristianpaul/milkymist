@@ -16,17 +16,9 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-module namuru #(
-	parameter csr_addr = 5'h0
-) (
+module namuru (
 	input sys_clk,
 	input sys_rst,
-
-	/* CSR */
-	input [14:0] csr_a,
-	input csr_we,
-	input [31:0] csr_di,
-	output [31:0] csr_do,
 
 	/* WISHBONE to access RAM */
 	input [31:0] wb_adr_i,
@@ -41,147 +33,124 @@ module namuru #(
         /* From GPS Receiver */
         input gps_rec_clk,
 	input gps_rec_sign,
-	input gps_rec_mag,
+	input gps_rec_mag
 
-	output accum_int
+	//output accum_int
 
 	/* Debug */
 	//output gps_led
 	//output namuru_nco
 );
 
-/* Interconnect wires */
-/* control and status */
-wire rstn;
-wire [23:0] tic_count;
-wire [23:0] accum_count;
-wire [23:0] prog_tic;
-wire [23:0] prog_accum_int;
+/*CDC Sync from Master to Slave */
+/* reset */
+namuru_psync system_rst(
+	.clk1(sys_clk),
+	.i(sys_rst),
+	.clk2(gps_rec_clk),
+	.o(sys_rst_sync)
+);
 
-/* time base */
-wire pre_tic_enable;
-wire tic_enable;
-wire accum_enable_s;
-wire accum_sample_enable;
+/* stb */
+reg stb_i0;
+reg stb_i1;
+reg stb_i2;
+reg stb_i3;
 
-/* channel 0 */
-wire [9:0] ch0_prn_key;
-wire [28:0] ch0_carr_nco;
-wire [27:0] ch0_code_nco;
-wire [10:0] ch0_code_slew;
-wire [10:0] ch0_epoch_load;
-wire ch0_prn_key_enable; 
-wire ch0_slew_enable;
-wire ch0_epoch_enable;
-wire ch0_dump;
-wire [15:0] ch0_i_early, ch0_q_early, ch0_i_prompt, ch0_q_prompt, ch0_i_late, ch0_q_late;
-wire [31:0] ch0_carrier_val;
-wire [20:0] ch0_code_val;
-wire [10:0] ch0_epoch, ch0_epoch_check;
+always @(posedge gps_rec_clk) begin
+	stb_i0 <= wb_stb_i;
+	stb_i1 <= stb_i0;
+//	stb_i2 <= stb_i1;
+//	stb_i3 <= stb_i2;
+end
 
+assign wb_stb_i_sync = stb_i1;
+/*
+namuru_psync system_stb(
+	.clk1(sys_clk),
+	.i(wb_stb_i),
+	.clk2(gps_rec_clk),
+	.o(wb_stb_i_sync)
+);
+*/
+/* cyc */
+reg cyc_i0;
+reg cyc_i1;
+reg cyc_i2;
+reg cyc_i3;
 
-/* Registers and Bus Interface */
-namuru_ctlif #(
-	.csr_addr(csr_addr)
-) ctlif (
+always @(posedge gps_rec_clk) begin
+	cyc_i0 <= wb_cyc_i;
+	cyc_i1 <= cyc_i0;
+//	cyc_i2 <= cyc_i1;
+	cyc_i3 <= cyc_i2;
+end
+
+assign wb_cyc_i_sync = cyc_i3;
+/*
+namuru_psync system_cyc(
+	.clk1(sys_clk),
+	.i(wb_cyc_i),
+	.clk2(gps_rec_clk),
+	.o(wb_cyc_i_sync)
+);
+*/
+/* we */
+reg we_i0;
+reg we_i1;
+reg we_i2;
+reg we_i3;
+
+always @(posedge gps_rec_clk) begin
+	we_i0 <= wb_we_i;
+	we_i1 <= we_i0;
+	we_i2 <= we_i1;
+	we_i3 <= we_i2;
+end
+
+assign wb_we_i_sync = we_i3;
+/*
+namuru_psync system_we(
+	.clk1(sys_clk),
+	.i(wb_we_i),
+	.clk2(gps_rec_clk),
+	.o(wb_we_i_sync)
+);
+*/
+
+wb_generic wb_generic (
 	.sys_clk(sys_clk),
-	.sys_rst(sys_rst),
-
-	.csr_a(csr_a),
-	.csr_we(csr_we),
-	.csr_di(csr_di),
-	.csr_do(csr_do),
-
-	/* int */
-	.accum_int(accum_int),
-
-	/* status */
-	/* wires from time base registers */
-	
-	.rstn(rstn),
-	.tic_divide(prog_tic),
-	.accum_divide(prog_accum_int),
-	.pre_tic_enable(pre_tic_enable),
-	.tic_enable(tic_enable),
-	.accum_enable(accum_enable_s),
-	.accum_sample_enable(accum_sample_enable),
-	.tic_count(tic_count),
-	.accum_count(accum_count),
-
-	/* fow now ctlif but channels should be mapped to wishbone TODO*/
-
-	/* regs and wires from channel 0 */
-	.ch0_prn_key(ch0_prn_key),
-	.ch0_carr_nco(ch0_carr_nco),
-	.ch0_code_nco(ch0_code_nco),
-	.ch0_code_slew(ch0_code_slew),
-	.ch0_epoch_load(ch0_epoch_load),
-	.ch0_prn_key_enable(ch0_prn_key_enable), 
-	.ch0_slew_enable(ch0_slew_enable),
-	.ch0_epoch_enable(ch0_epoch_enable),
-	.ch0_dump(ch0_dump),
-	.ch0_i_early(ch0_i_early),
-	.ch0_q_early(ch0_q_earlY),
-	.ch0_i_prompt(ch0_i_prompt),
-	.ch0_q_prompt(ch0_q_prompt),
-	.ch0_i_late(ch0_i_lat),
-	.ch0_q_late(ch0_q_late),
-	.ch0_carrier_val(ch0_carrier_val),
-	.ch0_code_val(ch0_code_val),
-	.ch0_epoch(ch0_epoch),
-	.ch0_epoch_check(ch0_epoch_chec)
+	.sys_rst(sys_rst_sync),
+	.wb_adr_i(wb_adr_i),
+	.wb_dat_o(wb_dat_o),
+	.wb_dat_i(wb_dat_i),
+	.wb_sel_i(),
+	.wb_stb_i(wb_stb_i_sync),
+	.wb_cyc_i(wb_cyc_i_sync),
+	.wb_ack_o(wb_ack_o_sync),
+	.wb_we_i(wb_we_i_sync)
 );
 
-/* Baseband */
-// this will be usefull to 
-//gps_baseband  baseband(
-//	.gps_rec_clk(gps_rec_clk),
-//	.gps_rec_sign(gps_rec_sign),
-//	.gps_rec_mag(gps_rec_mag),
-//);
-
-//time base
-time_base tb (
-	.clk(gps_rec_clk), 
-	.rstn(rstn),
-	.tic_divide(prog_tic),
-	.accum_divide(prog_accum_int),
-//	.sample_clk(s_clk), // not used here
-	.pre_tic_enable(pre_tic_enable),
-	.tic_enable(tic_enable),
-	.accum_enable(accum_enable_s),
-	.accum_sample_enable(accum_sample_enable),
-	.tic_count(tic_count),
-	.accum_count(accum_count)
+namuru_psync system_ack(
+	.clk1(gps_rec_clk),
+	.i(wb_ack_o_sync),
+	.clk2(sys_clk),
+	.o(wb_ack_o)
 );
+/*
+/*CDC Sync from Slave to Master */
+/* ack */
+/*
+reg ack_i0;
+reg ack_i1;
+reg ack_i2;
 
-/* tracking channel 0 */
-tracking_channel tc0 (
-	.clk(gps_rec_clk), 
-	.rstn(rstn),
-	.accum_sample_enable(accum_sample_enable),
-	.if_sign(sign), 
-	.if_mag(mag),
-	.pre_tic_enable(pre_tic_enable),
-	.tic_enable(tic_enable),
-	.carr_nco_fc(ch0_carr_nco),
-	.code_nco_fc(ch0_code_nco),
-	.prn_key(ch0_prn_key),
-	.prn_key_enable(ch0_prn_key_enable),
-	.code_slew(ch0_code_slew),
-	.slew_enable(ch0_slew_enable),
-	.epoch_enable(ch0_epoch_enable),
-	.dump(ch0_dump),
-	.i_early(ch0_i_early),
-	.q_early(ch0_q_early),
-	.i_prompt(ch0_i_prompt),
-	.q_prompt(ch0_q_prompt),
-	.i_late(ch0_i_late),
-	.q_late(ch0_q_late),
-	.carrier_val(ch0_carrier_val),
-	.code_val(ch0_code_val),
-	.epoch_load(ch0_epoch_load),
-	.epoch(ch0_epoch),
-	.epoch_check(ch0_epoch_check)
-);
+always @(posedge sys_clk) begin
+	ack_i0 <= wb_ack_o_sync;
+	ack_i1 <= ack_i0;
+	ack_i2 <= ack_i1;
+end
+assign wb_ack_o = ack_i2;
+*/
+
 endmodule
