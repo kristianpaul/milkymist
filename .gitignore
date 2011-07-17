@@ -7,6 +7,8 @@
 *.fpg
 *.raw
 *.fbi
+*.swn
+*.swo
 boards/milkymist-one/synthesis/build
 boards/milkymist-one/synthesis/build-rescue
 boards/milkymist-one/standby/build
