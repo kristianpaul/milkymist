@@ -66,7 +66,7 @@ NET "btn3" LOC = AB5 | IOSTANDARD = LVCMOS33;
 
 # ==== LEDs ====
 NET "led1" LOC = B16 | IOSTANDARD = LVCMOS33 | SLEW = QUIETIO | DRIVE = 24;
-NET "led2" LOC = A16 | IOSTANDARD = LVCMOS33 | SLEW = QUIETIO | DRIVE = 24;
+#NET "led2" LOC = A16 | IOSTANDARD = LVCMOS33 | SLEW = QUIETIO | DRIVE = 24;
 
 # ==== DDR SDRAM ====
 NET "sdram_adr(0)" LOC = B1;
@@ -309,16 +309,16 @@ NET "exp(*)" IOSTANDARD = LVCMOS33;
 NET "exp(*)" PULLDOWN;
 
 # ==== L1 GPS Receiver ====
-NET "gps_rec_sync" LOC = A20 | IOSTANDARD = LVCMOS33;
-NET "gps_rec_data" LOC = A21 | IOSTANDARD = LVCMOS33;
+NET "gps_rec_sign" LOC = A20 | IOSTANDARD = LVCMOS33; #sign - sync
+NET "gps_rec_mag" LOC = A21 | IOSTANDARD = LVCMOS33; #mag - data
 NET "gps_rec_clk" LOC = B21 | IOSTANDARD = LVCMOS33;
-NET "gps_debug_purple" LOC = B22 | IOSTANDARD = LVCMOS33 | SLEW = FAST;
-NET "gps_debug_blue" LOC = G16 | IOSTANDARD = LVCMOS33 | SLEW = FAST;
-NET "gps_debug_green" LOC = G17 | IOSTANDARD = LVCMOS33 | SLEW = FAST;
+#NET "gps_debug_purple" LOC = B22 | IOSTANDARD = LVCMOS33 | SLEW = FAST;
+#NET "gps_debug_blue" LOC = G16 | IOSTANDARD = LVCMOS33 | SLEW = FAST;
+#NET "gps_debug_green" LOC = G17 | IOSTANDARD = LVCMOS33 | SLEW = FAST;
 
 # ==== UART1 ====
-NET "uart1_rx" LOC = G17 | IOSTANDARD = LVCMOS33 | PULLUP;		#IO_L13P_1
-NET "uart1_tx" LOC = G16 | IOSTANDARD = LVCMOS33 | SLEW = SLOW;
+# NET "uart1_rx" LOC = G17 | IOSTANDARD = LVCMOS33 | PULLUP;		#IO_L13P_1
+# NET "uart1_tx" LOC = G16 | IOSTANDARD = LVCMOS33 | SLEW = SLOW;
 
 
 # ==== PCB revision ====
