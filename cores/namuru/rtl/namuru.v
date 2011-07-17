@@ -1,6 +1,5 @@
 /*
  * Milkymist SoC GPS-SDR
- * Copyright (C) 2007, 2008, 2009, 2010, 2011 Sebastien Bourdeauducq
  * Copyleft 2011 Cristian Paul Peñaranda Rojas
  *
  * This program is free software: you can redistribute it and/or modify
@@ -60,19 +59,11 @@ reg stb_i3;
 always @(posedge gps_rec_clk) begin
 	stb_i0 <= wb_stb_i;
 	stb_i1 <= stb_i0;
-//	stb_i2 <= stb_i1;
-//	stb_i3 <= stb_i2;
+	stb_i2 <= stb_i1;
+	stb_i3 <= stb_i2;
 end
 
-assign wb_stb_i_sync = stb_i1;
-/*
-namuru_psync system_stb(
-	.clk1(sys_clk),
-	.i(wb_stb_i),
-	.clk2(gps_rec_clk),
-	.o(wb_stb_i_sync)
-);
-*/
+assign wb_stb_i_sync = stb_i3;
 /* cyc */
 reg cyc_i0;
 reg cyc_i1;
@@ -82,19 +73,12 @@ reg cyc_i3;
 always @(posedge gps_rec_clk) begin
 	cyc_i0 <= wb_cyc_i;
 	cyc_i1 <= cyc_i0;
-//	cyc_i2 <= cyc_i1;
+	cyc_i2 <= cyc_i1;
 	cyc_i3 <= cyc_i2;
 end
 
 assign wb_cyc_i_sync = cyc_i3;
-/*
-namuru_psync system_cyc(
-	.clk1(sys_clk),
-	.i(wb_cyc_i),
-	.clk2(gps_rec_clk),
-	.o(wb_cyc_i_sync)
-);
-*/
+
 /* we */
 reg we_i0;
 reg we_i1;
@@ -109,17 +93,9 @@ always @(posedge gps_rec_clk) begin
 end
 
 assign wb_we_i_sync = we_i3;
-/*
-namuru_psync system_we(
-	.clk1(sys_clk),
-	.i(wb_we_i),
-	.clk2(gps_rec_clk),
-	.o(wb_we_i_sync)
-);
-*/
 
-wb_generic wb_generic (
-	.sys_clk(sys_clk),
+gps_channel_correlator gps_correlator (
+	.sys_clk(gps_rec_clk),
 	.sys_rst(sys_rst_sync),
 	.wb_adr_i(wb_adr_i),
 	.wb_dat_o(wb_dat_o),
@@ -131,26 +107,13 @@ wb_generic wb_generic (
 	.wb_we_i(wb_we_i_sync)
 );
 
+/*CDC Sync from Slave to Master */
+/* ack */
 namuru_psync system_ack(
 	.clk1(gps_rec_clk),
 	.i(wb_ack_o_sync),
 	.clk2(sys_clk),
 	.o(wb_ack_o)
 );
-/*
-/*CDC Sync from Slave to Master */
-/* ack */
-/*
-reg ack_i0;
-reg ack_i1;
-reg ack_i2;
-
-always @(posedge sys_clk) begin
-	ack_i0 <= wb_ack_o_sync;
-	ack_i1 <= ack_i0;
-	ack_i2 <= ack_i1;
-end
-assign wb_ack_o = ack_i2;
-*/
 
 endmodule
