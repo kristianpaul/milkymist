@@ -1,0 +1,29 @@
+GPLCVER_2.12a of 05/16/07 (Linux-elf).
+Copyright (c) 1991-2007 Pragmatic C Software Corp.
+  All Rights reserved.  Licensed under the GNU General Public License (GPL).
+  See the 'COPYING' file for details.  NO WARRANTY provided.
+Today is Sun Jul 17 15:39:22 2011.
+Compiling source file "tb_namuru.v"
+Compiling source file "../rtl/namuru_accumulator.v"
+Compiling source file "../rtl/namuru_baseband.v"
+Compiling source file "../rtl/namuru_carrier_mixer.v"
+Compiling source file "../rtl/namuru_carrier_nco.v"
+Compiling source file "../rtl/namuru_code_gen2.v"
+Compiling source file "../rtl/namuru_code_nco.v"
+Compiling source file "../rtl/namuru_ctlif.v"
+Compiling source file "../rtl/namuru_epoch_counter.v"
+Compiling source file "../rtl/namuru_gps_baseband.v"
+Compiling source file "../rtl/namuru_psync.v"
+Compiling source file "../rtl/namuru_sync_timebase.v"
+Compiling source file "../rtl/namuru_time_base.v"
+Compiling source file "../rtl/namuru_tracking_channel.v"
+Compiling source file "../rtl/namuru.v"
+**../rtl/namuru.v(141) WARN** [622] nested /* in /* style comment
+Highest level modules:
+tb_namuru
+namuru_ctlif
+gps_baseband
+namuru_sync_timebase
+
+C1 > :q!
+--CMD ERROR** [1413] interactive command extra characters [! ] at end discarded
