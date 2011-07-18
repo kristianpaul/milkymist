@@ -32,12 +32,12 @@ module namuru (
         /* From GPS Receiver */
         input gps_rec_clk,
 	input gps_rec_sign,
-	input gps_rec_mag
+	input gps_rec_mag,
 
-	//output accum_int
+	/* correlator specific */
+	output accum_interrupt
 
 	/* Debug */
-	//output gps_led
 	//output namuru_nco
 );
 
@@ -97,6 +97,9 @@ assign wb_we_i_sync = we_i3;
 gps_channel_correlator gps_correlator (
 	.correlator_clk(gps_rec_clk),
 	.correlator_rst(sys_rst_sync),
+	.sign(gps_rec_sign),
+	.mag(gps_rec_mag),
+	.accum_int(accum_interrupt),
 	.wb_adr_i(wb_adr_i),
 	.wb_dat_o(wb_dat_o),
 	.wb_dat_i(wb_dat_i),
