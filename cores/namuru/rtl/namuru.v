@@ -95,8 +95,8 @@ end
 assign wb_we_i_sync = we_i3;
 
 gps_channel_correlator gps_correlator (
-	.sys_clk(gps_rec_clk),
-	.sys_rst(sys_rst_sync),
+	.correlator_clk(gps_rec_clk),
+	.correlator_rst(sys_rst_sync),
 	.wb_adr_i(wb_adr_i),
 	.wb_dat_o(wb_dat_o),
 	.wb_dat_i(wb_dat_i),
