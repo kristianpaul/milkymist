@@ -33,7 +33,7 @@
                  Resolution:
                  fControl increment value = 0.167510016 Hz
                  Put another way:
-                 16mHz is the smallest change in carrier frequency possible
+                 167mHz is the smallest change in carrier frequency possible
                  with this NCO.
  
                  The carrier phase and carrier cycle count are latched into
