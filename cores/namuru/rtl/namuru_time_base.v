@@ -26,7 +26,7 @@
     Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
 */
 
-module time_base (clk, rstn, tic_divide, accum_divide, sample_clk, pre_tic_enable, tic_enable, accum_enable, accum_sample_enable, tic_count, accum_count);
+module time_base (clk, rstn, tic_divide, accum_divide, sample_clk, pre_tic_enable, tic_enable, accum_enable, tic_count, accum_count);
    
 
    input clk, rstn;
@@ -36,7 +36,6 @@ module time_base (clk, rstn, tic_divide, accum_divide, sample_clk, pre_tic_enabl
    output pre_tic_enable; // to code_nco's
    output tic_enable; // to code_gen's
    output accum_enable; // accumulation interrupt
-   output accum_sample_enable; // accumulators sampling enable (40/7MHz)
    output [23:0] tic_count; // the value of the TIC counter
    output [23:0] accum_count; // the value of the accum counter
    
@@ -59,15 +58,15 @@ module time_base (clk, rstn, tic_divide, accum_divide, sample_clk, pre_tic_enabl
    */
 
    //assign 	 sample_clk = (sc_q == 0)? 1:0;
-   assign    accum_sample_enable = (sc_q == 3)? 1:0; // accumulator sample pulse
+   //assign    accum_sample_enable = (sc_q == 3)? 1:0; // accumulator sample pulse
    
   //--------------------------------------------------
   // generate the tic_enable
   // 
   // tic period = (tic_divide + 1) * Clk period
-  // If clocked by GP2015 40HHz:
-  // tic period = (tic_divide + 1) / 40MHz
-  // For default tic period (0.1s) tic_divide = 0x3D08FF
+  // If clocked by SiGE 4162 Realmode 16.384Mhz :
+  // tic period = (tic_divide + 1) / 16.384 Mhz
+  // For default tic period (0.1s) tic_divide = 0x18ffff
   //----------------------------------------------------   
 /*   lpm_counter te(
 		  .clock(clk),
@@ -84,7 +83,7 @@ module time_base (clk, rstn, tic_divide, accum_divide, sample_clk, pre_tic_enabl
 	   if(rstn)
 		   tmp_count_te <=  24'b111111111111111111111111;
 	   else if (pre_tic_enable)
-		   tmp_count_te <= accum_divide;
+		   tmp_count_te <= tic_divide;
 	   else 
 		   tmp_count_te <= tmp_count_te - 1'b1;
    end
@@ -122,10 +121,10 @@ module time_base (clk, rstn, tic_divide, accum_divide, sample_clk, pre_tic_enabl
   // The accumulators are asynchronous to each other and have a
   // dump period of nominally 1ms.
   //
-  // ACCUM_INT period = (accum_divide + 1) / 40MHz
+  // ACCUM_INT period = (accum_divide + 1) / 16.384MHz
   // For 0.5 ms accumulator interrupt
-  // accum_divide = 40000000 * 0.0005 - 1
-  // accum_divide = 0x4E1F	     
+  // accum_divide = 16.384x10^6 * 0.0005 - 1
+  // accum_divide = 0x1FFF	     
   //----------------------------------------------------------
 /*   lpm_counter ae(
 		  .clock(clk),
