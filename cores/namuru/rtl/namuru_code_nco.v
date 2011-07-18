@@ -28,18 +28,18 @@
                  where:
                  f = the required frequency
                  N = 29 (bit width of the phase accumulator)
-                 clk = the system clock (= 40MHz)
+                 clk = the system clock (= 16.384MHz)
                  fControl = the 28 bit (unsigned) control word
  
                  To generate the C/A code at f, the NCO must be set to run
                  at 2f, therefore:
                       code_frequency = 0.5 * fControl * clk/2^N
 
-                 For a system clock running @ clk = 40 MHz:
-                     fControl = code_frequency * 2^29 / 20[Mhz]
+                 For a system clock running @ clk = 16.384 MHz:
+                     fControl = code_frequency * 2^29 / 8.192[Mhz]
 
                  For code_frequency = 1.023MHz
-                     fControl = 0x1A30552
+                     fControl = 0x3FF0000
  */
 /*
 	Copyright (C) 2007  Peter Mumford
