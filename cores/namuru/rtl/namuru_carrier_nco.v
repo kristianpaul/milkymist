@@ -14,7 +14,7 @@
                     f = fControl * Clk / 2^N
                  where:
                  f = the required carrier wave frequency
-                 Clk = the system clock (= 40MHz)
+                 Clk = the system clock (= 16.384 MHz)
                  N = 30 (bit width of the phase accumulator)
                  fControl = the 30 bit (unsigned) control word 
  
@@ -25,15 +25,15 @@
                         Q: +2 +2 +1 -1 -2 -2 -1 +1
 
                  The nominal center frequency for the GP2015 is:
-                 IF = 1.405396825MHz
-                 Clk = 40 MHz
+                 IF = 2.556 MHz
+                 Clk = 16.384  MHz
                  fControl = 2^N * IF / Clk
-                 fControl = 0x23FA689 for center frequency
+                 fControl = 0x9F0000 for center frequency
 
                  Resolution:
-                 fControl increment value = 0.037252902 Hz
+                 fControl increment value = 0.167510016 Hz
                  Put another way:
-                 37mHz is the smallest change in carrier frequency possible
+                 16mHz is the smallest change in carrier frequency possible
                  with this NCO.
  
                  The carrier phase and carrier cycle count are latched into
