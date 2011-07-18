@@ -24,7 +24,7 @@
                         I: -1 +1 +2 +2 +1 -1 -2 -2
                         Q: +2 +2 +1 -1 -2 -2 -1 +1
 
-                 The nominal center frequency for the GP2015 is:
+                 The nominal center frequency for the SiGE 4162 in real mode is:
                  IF = 2.556 MHz
                  Clk = 16.384  MHz
                  fControl = 2^N * IF / Clk
