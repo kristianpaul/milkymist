@@ -83,7 +83,7 @@ time_base tb (
 	.tic_count(tic_count),
 	.accum_count(accum_count)
 );
-assign rstn = correlator_rst & ~sw_rst;
+assign rstn = !correlator_rst & !sw_rst; //TODO ~correlator_rst should be, so  1 & 1 (sw_rst default 0)
 
 // connect up tracking channels
 tracking_channel tc0 (
@@ -159,8 +159,15 @@ reg [31:0] wb_dat_o_le;
 always @(posedge correlator_clk) begin
 	        if(correlator_rst) begin
 			wb_dat_o_le <= 32'd0;
+			ch0_prn_key_enable <= 1'b0;
+			ch0_prn_key <= 10'b0;
 			ch0_carr_nco <= 29'd0;// Need to initialize nco's (at least for simulation) or they don't run.
 			ch0_code_nco <= 28'd0;
+			ch0_slew_enable <= 1'b0;
+			ch0_code_slew <= 11'b0;
+			ch0_epoch_enable <=  1'b0;
+			ch0_epoch_load <= 11'b0;
+
 			sw_rst <= 1'b0;
 			
 		end else begin
@@ -179,6 +186,11 @@ always @(posedge correlator_clk) begin
 					ch0_slew_enable <= 1'b1;
 					ch0_code_slew <= wb_dat_i_le[10:0];
 				end
+				8'h0E : begin
+					ch0_epoch_enable <=  1'b1;
+					ch0_epoch_load <= wb_dat_i_le[10:0];
+				end
+
 				/* status */ 
 				/* nothing to write */
 
@@ -186,6 +198,7 @@ always @(posedge correlator_clk) begin
 				8'hF0: sw_rst <= 1'b1; // software reset
 				8'hF1: prog_tic <= wb_dat_i_le[23:0]; // program TIC
 				8'hF2: prog_accum_int <= wb_dat_i_le[23:0]; // program ACCUM_INT
+
 				endcase
 			end
 			/* read */
