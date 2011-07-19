@@ -80,7 +80,7 @@ module time_base (clk, rstn, tic_divide, accum_divide, sample_clk, pre_tic_enabl
 
    reg [23:0] tmp_count_te;
    always @(posedge clk or posedge pre_tic_enable or posedge rstn) begin
-	   if(rstn)
+	   if(!rstn)
 		   tmp_count_te <=  24'b111111111111111111111111;
 	   else if (pre_tic_enable)
 		   tmp_count_te <= tic_divide;
@@ -138,7 +138,7 @@ module time_base (clk, rstn, tic_divide, accum_divide, sample_clk, pre_tic_enabl
 */
    reg [23:0] tmp_count_ae;
    always @(posedge clk or posedge accum_enable or posedge rstn) begin
-	   if(rstn)
+	   if(!rstn)
 		   tmp_count_ae <=  24'b111111111111111111111111;
 	   else if (accum_enable)
 		   tmp_count_ae <= accum_divide;
