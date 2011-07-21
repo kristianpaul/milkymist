@@ -51,48 +51,25 @@ namuru_psync system_rst(
 );
 
 /* stb */
-reg stb_i0;
-reg stb_i1;
-reg stb_i2;
-reg stb_i3;
+namuru_ssync wb_stb_in(
+	.clks(gps_rec_clk),
+	.i(wb_stb_i),
+	.o(wb_stb_i_sync)
+);
 
-always @(posedge gps_rec_clk) begin
-	stb_i0 <= wb_stb_i;
-	stb_i1 <= stb_i0;
-	stb_i2 <= stb_i1;
-	stb_i3 <= stb_i2;
-end
-
-assign wb_stb_i_sync = stb_i3;
 /* cyc */
-reg cyc_i0;
-reg cyc_i1;
-reg cyc_i2;
-reg cyc_i3;
-
-always @(posedge gps_rec_clk) begin
-	cyc_i0 <= wb_cyc_i;
-	cyc_i1 <= cyc_i0;
-	cyc_i2 <= cyc_i1;
-	cyc_i3 <= cyc_i2;
-end
-
-assign wb_cyc_i_sync = cyc_i3;
+namuru_ssync wb_cyc_in(
+	.clks(gps_rec_clk),
+	.i(wb_cyc_i),
+	.o(wb_cyc_i_sync)
+);
 
 /* we */
-reg we_i0;
-reg we_i1;
-reg we_i2;
-reg we_i3;
-
-always @(posedge gps_rec_clk) begin
-	we_i0 <= wb_we_i;
-	we_i1 <= we_i0;
-	we_i2 <= we_i1;
-	we_i3 <= we_i2;
-end
-
-assign wb_we_i_sync = we_i3;
+namuru_ssync wb_we_in(
+	.clks(gps_rec_clk),
+	.i(wb_we_i),
+	.o(wb_we_i_sync)
+);
 
 gps_channel_correlator gps_correlator (
 	.correlator_clk(gps_rec_clk),
@@ -112,7 +89,7 @@ gps_channel_correlator gps_correlator (
 
 /*CDC Sync from Slave to Master */
 /* ack */
-namuru_psync system_ack(
+namuru_psync wb_ack_out(
 	.clk1(gps_rec_clk),
 	.i(wb_ack_o_sync),
 	.clk2(sys_clk),
