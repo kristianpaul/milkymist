@@ -147,9 +147,9 @@ module system(
 	input gps_rec_sign,
 	input gps_rec_mag,
 	//output gps_led,
-	//output gps_debug_purple,
-	//output gps_debug_blue,
-	//output gps_debug_green,
+	output gps_debug_purple,
+	output gps_debug_blue,
+	output gps_debug_green,
 
 	// PCB revision
 	input [3:0] pcb_revision
@@ -375,7 +375,7 @@ wire		norflash_ack,
 //---------------------------------------------------------------------------
 // norflash     0x00000000 (shadow @0x80000000)
 // debug        0x10000000 (shadow @0x90000000)
-// GPS Receiver 0x20000000 (shadow @0xa0000000) //USB was here..
+// GPS Correltr 0x20000000 (shadow @0xa0000000)
 // Ethernet     0x30000000 (shadow @0xb0000000)
 // SDRAM        0x40000000 (shadow @0xc0000000)
 // CSR bridge   0x60000000 (shadow @0xe0000000)
@@ -384,7 +384,7 @@ wire		norflash_ack,
 conbus5x7 #(
 	.s0_addr(3'b000), // norflash
 	.s1_addr(3'b001), // debug
-	.s2_addr(3'b010), // L1 GPS Receiver
+	.s2_addr(3'b010), // L1 GPS Correlator
 	.s3_addr(3'b011), // Ethernet
 	.s4_addr(2'b10),  // SDRAM
 	.s5_addr(2'b11)   // CSR
@@ -482,16 +482,6 @@ conbus5x7 #(
 	.s2_cyc_o(namuru_cyc),
 	.s2_stb_o(namuru_stb),
 	.s2_ack_i(namuru_ack),
-	// Slave 2
-	/*.s2_dat_i(usb_dat_r),
-	.s2_dat_o(usb_dat_w),
-	.s2_adr_o(usb_adr),
-	.s2_cti_o(),
-	.s2_sel_o(usb_sel),
-	.s2_we_o(usb_we),
-	.s2_cyc_o(usb_cyc),
-	.s2_stb_o(usb_stb),
-	.s2_ack_i(usb_ack),*/
 	// Slave 3
 	.s3_dat_i(eth_dat_r),
 	.s3_dat_o(eth_dat_w),
@@ -773,7 +763,7 @@ wire usb_irq;
 wire namuru_irq;
 
 wire [31:0] cpu_interrupt;
-assign cpu_interrupt = {14'd0,
+assign cpu_interrupt = {13'd0,
 	namuru_irq,
 	usb_irq,
 	ir_irq,
@@ -1623,12 +1613,12 @@ namuru baseband (
 
 		.gps_rec_clk(gps_rec_clk),
 		.gps_rec_sign(gps_rec_sign),
-		.gps_rec_mag(gps_rec_mag)
+		.gps_rec_mag(gps_rec_mag),
 
 		//.gps_led(led2),
-		//.gps_rec_overflow(gps_debug_purple),
-		//.gps_rec_rxb0_clk(gps_debug_blue)
-		//.gps_rec_data_debug(gps_debug_green)
+		.namuru_stb(gps_debug_purple),
+		.namuru_ack(gps_debug_blue),
+		.namuru_cyc(gps_debug_green)
 	);
 
 endmodule
