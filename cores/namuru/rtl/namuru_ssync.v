@@ -25,7 +25,7 @@ reg level1;
 reg level2;
 reg level3;
 reg level4;
-always @(posedge clkss) begin
+always @(posedge clks) begin
 	level1 <= i;
 	level2 <= level1;
 	level3 <= level2;
