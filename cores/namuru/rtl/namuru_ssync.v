@@ -18,7 +18,7 @@
 module namuru_ssync(
 	input i,
 	input clks,
-	input o
+	output o
 );
 
 reg level1;
