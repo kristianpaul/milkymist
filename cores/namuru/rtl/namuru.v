@@ -35,45 +35,18 @@ module namuru (
 	input gps_rec_mag,
 
 	/* correlator specific */
-	output accum_interrupt
+	output accum_interrupt,
 
 	/* Debug */
-	//output namuru_nco
-);
+	output namuru_stb,
+	output namuru_cyc,
+	output namuru_ack
 
-/*CDC Sync from Master to Slave */
-/* reset */
-namuru_psync system_rst(
-	.clk1(sys_clk),
-	.i(sys_rst),
-	.clk2(gps_rec_clk),
-	.o(sys_rst_sync)
-);
-
-/* stb */
-namuru_ssync wb_stb_in(
-	.clks(gps_rec_clk),
-	.i(wb_stb_i),
-	.o(wb_stb_i_sync)
-);
-
-/* cyc */
-namuru_ssync wb_cyc_in(
-	.clks(gps_rec_clk),
-	.i(wb_cyc_i),
-	.o(wb_cyc_i_sync)
-);
-
-/* we */
-namuru_ssync wb_we_in(
-	.clks(gps_rec_clk),
-	.i(wb_we_i),
-	.o(wb_we_i_sync)
 );
 
 gps_channel_correlator gps_correlator (
 	.correlator_clk(gps_rec_clk),
-	.correlator_rst(sys_rst_sync),
+	.correlator_rst(sys_rst),
 	.sign(gps_rec_sign),
 	.mag(gps_rec_mag),
 	.accum_int(accum_interrupt),
@@ -81,10 +54,10 @@ gps_channel_correlator gps_correlator (
 	.wb_dat_o(wb_dat_o),
 	.wb_dat_i(wb_dat_i),
 	.wb_sel_i(),
-	.wb_stb_i(wb_stb_i_sync),
-	.wb_cyc_i(wb_cyc_i_sync),
+	.wb_stb_i(wb_stb_i),
+	.wb_cyc_i(wb_cyc_i),
 	.wb_ack_o(wb_ack_o_sync),
-	.wb_we_i(wb_we_i_sync)
+	.wb_we_i(wb_we_i)
 );
 
 /*CDC Sync from Slave to Master */
