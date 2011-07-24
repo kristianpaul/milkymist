@@ -83,7 +83,9 @@ time_base tb (
 	.tic_count(tic_count),
 	.accum_count(accum_count)
 );
-assign rstn = !correlator_rst & !sw_rst; //TODO ~correlator_rst should be, so  1 & 1 (sw_rst default 0)
+
+// asserted rstn RESET namuru
+assign rstn = ~correlator_rst & ~sw_rst; 
 
 // connect up tracking channels
 tracking_channel tc0 (
