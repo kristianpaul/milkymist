@@ -48,6 +48,11 @@ enum {
 	CSR_WP0, CSR_WP1, CSR_WP2, CSR_WP3,
 };
 
+/* namuru registers */
+
+#define CH0_PRN_KEY        (0xa0000000)
+
+
 /* General address space functions */
 
 #define NUMBER_OF_BYTES_ON_A_LINE 16
@@ -88,6 +93,72 @@ static void dump_bytes(unsigned int *ptr, int count, unsigned addr)
 	printf("\n");
 }
 
+static void dump_correlator_bytes(unsigned int *ptr, int count, unsigned addr)
+{
+	char *data = (char *)ptr;
+	int line_bytes = 0, i = 0;
+
+	putsnonl("Memory dump:");
+	while(count > 0){
+		line_bytes =
+			(count > NUMBER_OF_BYTES_ON_A_LINE)?
+				NUMBER_OF_BYTES_ON_A_LINE : count;
+
+		printf("\n0x%08x  ", addr);
+		for(i=0;i<line_bytes;i++)
+			printf("%02x ", *(unsigned char *)(data+i));
+
+		for(;i<NUMBER_OF_BYTES_ON_A_LINE;i++)
+			printf("   ");
+
+		printf(" ");
+
+		for(i=0;i<line_bytes;i++) {
+			if((*(data+i) < 0x20) || (*(data+i) > 0x7e))
+				printf(".");
+			else
+				printf("%c", *(data+i));
+		}
+
+		for(;i<NUMBER_OF_BYTES_ON_A_LINE;i++)
+			printf(" ");
+
+		data += (char)line_bytes;
+		count -= line_bytes;
+		addr += line_bytes;
+	}
+	printf("\n");
+}
+
+static void wb_delay()
+{
+	CSR_TIMER0_COUNTER = 0;
+	CSR_TIMER0_COMPARE = brd_desc->clk_frequency >> 2;
+	CSR_TIMER0_CONTROL = TIMER_ENABLE;
+	while(CSR_TIMER0_CONTROL & TIMER_ENABLE);
+}
+static void memtest1()
+{
+	volatile unsigned int *count_addr = (volatile unsigned int *)0xa0000000;
+	int i;
+	int j;
+	puts("Start \n");
+	unsigned int buf[1000000];
+	for (i = 0; i != 100; i++)
+		for (j = 0; j != sizeof(buf); j++)
+			buf[j] = *count_addr;
+	puts("Done \n");
+}
+
+static void hello()
+{
+	puts("hello correlator");
+	char *c;
+	unsigned int length = 1;
+	volatile unsigned int *addr = (volatile unsigned int *)CH0_PRN_KEY;
+
+	dump_correlator_bytes(addr, length, (unsigned)addr);
+}
 
 static void mr(char *startaddr, char *len)
 {
@@ -415,6 +486,8 @@ static void help()
 	puts("version    - display version");
 	puts("reboot     - system reset");
 	puts("reconf     - reload FPGA configuration");
+	puts("hello      - hello command and more");
+	puts("memtest1    - memory speed test, use a stopwatch!");
 }
 
 static char *get_token(char **str)
@@ -462,6 +535,9 @@ static void do_command(char *c)
 	else if(strcmp(token, "reconf") == 0) reconf();
 
 	else if(strcmp(token, "help") == 0) help();
+	
+	else if(strcmp(token, "hello") == 0) hello();
+	else if(strcmp(token, "memtest1") == 0) memtest1();
 
 	else if(strcmp(token, "rcsr") == 0) rcsr(get_token(&c));
 	else if(strcmp(token, "wcsr") == 0) wcsr(get_token(&c), get_token(&c));
