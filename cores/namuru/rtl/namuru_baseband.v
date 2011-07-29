@@ -34,8 +34,6 @@ module gps_channel_correlator(
 	input wb_we_i,
 	output reg wb_ack_o
 );
-// at least you want to align this in software
-wire [31:0] wb_dat_i_le = {wb_dat_i[7:0], wb_dat_i[15:8], wb_dat_i[23:16], wb_dat_i[31:24]};
 
 wire accum_enable_s;
 wire pre_tic_enable, tic_enable, accum_sample_enable;
@@ -157,10 +155,10 @@ end
 
 
 reg next_csr_we;
-reg [31:0] wb_dat_o_le;
+reg [31:0] wb_dat_o;
 always @(posedge correlator_clk) begin
 	        if(correlator_rst) begin
-			wb_dat_o_le <= 32'd0;
+			wb_dat_o <= 32'd0;
 			ch0_prn_key_enable <= 1'b0;
 			ch0_prn_key <= 10'b0;
 			ch0_carr_nco <= 29'd0;// Need to initialize nco's (at least for simulation) or they don't run.
@@ -173,24 +171,24 @@ always @(posedge correlator_clk) begin
 			sw_rst <= 1'b0;
 			
 		end else begin
-			wb_dat_o_le <= 32'd0;
+			wb_dat_o <= 32'd0;
 			if(next_csr_we) begin
 				/* write */
 				case(wb_adr_i[9:2])
 				/* channel 0 */
 				8'h00: begin
 					ch0_prn_key_enable <= 1'b1; 
-					ch0_prn_key <= wb_dat_i_le[9:0];
+					ch0_prn_key <= wb_dat_i[9:0];
 				end
-				8'h01: ch0_carr_nco <= wb_dat_i_le[28:0];
-				8'h02: ch0_code_nco <= wb_dat_i_le[27:0];
+				8'h01: ch0_carr_nco <= wb_dat_i[28:0];
+				8'h02: ch0_code_nco <= wb_dat_i[27:0];
 				8'h03: begin
 					ch0_slew_enable <= 1'b1;
-					ch0_code_slew <= wb_dat_i_le[10:0];
+					ch0_code_slew <= wb_dat_i[10:0];
 				end
 				8'h0E : begin
 					ch0_epoch_enable <=  1'b1;
-					ch0_epoch_load <= wb_dat_i_le[10:0];
+					ch0_epoch_load <= wb_dat_i[10:0];
 				end
 
 				/* status */ 
@@ -198,32 +196,32 @@ always @(posedge correlator_clk) begin
 
 				/* control */ 
 				8'hF0: sw_rst <= 1'b1; // software reset
-				8'hF1: prog_tic <= wb_dat_i_le[23:0]; // program TIC
-				8'hF2: prog_accum_int <= wb_dat_i_le[23:0]; // program ACCUM_INT
+				8'hF1: prog_tic <= wb_dat_i[23:0]; // program TIC
+				8'hF2: prog_accum_int <= wb_dat_i[23:0]; // program ACCUM_INT
 
 				endcase
 			end
 			/* read */
 			case(wb_adr_i[9:2])
 			/* channel 0 */
-			8'h04: wb_dat_o_le <= {16'h0, ch0_i_early};
-			8'h05: wb_dat_o_le <= {16'h0, ch0_q_early};
-			8'h06: wb_dat_o_le <= {16'h0, ch0_i_prompt};
-			8'h07: wb_dat_o_le <= {16'h0, ch0_q_prompt};
-			8'h08: wb_dat_o_le <= {16'h0, ch0_i_late};
-			8'h09: wb_dat_o_le <= {16'h0, ch0_q_late};
-			8'h0A: wb_dat_o_le <= ch0_carrier_val; // 32 bits
-			8'h0B: wb_dat_o_le <= {11'h0, ch0_code_val}; // 21 bits
-			8'h0C: wb_dat_o_le <= {21'h0, ch0_epoch}; // 11 bits
-			8'h0D: wb_dat_o_le <= {21'h0, ch0_epoch_check}; // 11 bits
+			8'h04: wb_dat_o <= {16'h0, ch0_i_early};
+			8'h05: wb_dat_o <= {16'h0, ch0_q_early};
+			8'h06: wb_dat_o <= {16'h0, ch0_i_prompt};
+			8'h07: wb_dat_o <= {16'h0, ch0_q_prompt};
+			8'h08: wb_dat_o <= {16'h0, ch0_i_late};
+			8'h09: wb_dat_o <= {16'h0, ch0_q_late};
+			8'h0A: wb_dat_o <= ch0_carrier_val; // 32 bits
+			8'h0B: wb_dat_o <= {11'h0, ch0_code_val}; // 21 bits
+			8'h0C: wb_dat_o <= {21'h0, ch0_epoch}; // 11 bits
+			8'h0D: wb_dat_o <= {21'h0, ch0_epoch_check}; // 11 bits
 
 			/* status */ 
 			8'hE0: begin // get status and pulse status_flag to clear status
-				wb_dat_o_le <= {30'h0, status}; // only 2 status bits, therefore need to pad 30ms bits
+				wb_dat_o <= {30'h0, status}; // only 2 status bits, therefore need to pad 30ms bits
 				status_read <= 1'b1; // pulse status flag to clear status register
 			end
 			8'hE1: begin // get new_data
-				wb_dat_o_le <= {30'h0,new_data}; //one new_data bit per channel, need to pad other bits
+				wb_dat_o <= {30'h0,new_data}; //one new_data bit per channel, need to pad other bits
 				// pulse the new data flag to clear new_data register
 				new_data_read <= 1'b1;
 				// make sure the flag is not cleared if a dump is aligned to new_data_read
@@ -231,21 +229,19 @@ always @(posedge correlator_clk) begin
 				/* more channels to come */
 			end
 			8'hE2: begin // tic count read
-				wb_dat_o_le <= {8'h0,tic_count}; // 24 bits of TIC count
+				wb_dat_o <= {8'h0,tic_count}; // 24 bits of TIC count
 			end
 			8'hE3: begin // accum count read
-				wb_dat_o_le <= {8'h0,accum_count}; // 24 bits of accum count
+				wb_dat_o <= {8'h0,accum_count}; // 24 bits of accum count
 			end
 			8'hEF: begin // accum count read
-				wb_dat_o_le <= 32'h14091987; // HW_TAG
+				wb_dat_o <= 32'h14091987; // HW_TAG
 			end
 				/* control */ 
 				/* nothing to read */
 			endcase
 		end
 	end
-// at least you want to align this in software
-assign wb_dat_o = {wb_dat_o_le[7:0], wb_dat_o_le[15:8], wb_dat_o_le[23:16], wb_dat_o_le[31:24]};
 
 reg [1:0] state;
 reg [1:0] next_state;
