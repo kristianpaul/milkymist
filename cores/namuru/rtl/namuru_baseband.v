@@ -195,7 +195,7 @@ always @(posedge correlator_clk) begin
 				/* nothing to write */
 
 				/* control */ 
-				8'hF0: sw_rst <= 1'b1; // software reset
+				8'hF0: sw_rst <= wb_dat_i[0:0]; // software reset
 				8'hF1: prog_tic <= wb_dat_i[23:0]; // program TIC
 				8'hF2: prog_accum_int <= wb_dat_i[23:0]; // program ACCUM_INT
 
@@ -235,7 +235,7 @@ always @(posedge correlator_clk) begin
 				wb_dat_o <= {8'h0,accum_count}; // 24 bits of accum count
 			end
 			8'hEF: begin // accum count read
-				wb_dat_o <= 32'h14091987; // HW_TAG
+				wb_dat_o <= 32'h6e6d7275; // HW_TAG nmru
 			end
 				/* control */ 
 				/* nothing to read */
