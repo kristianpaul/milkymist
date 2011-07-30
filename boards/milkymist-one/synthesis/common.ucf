@@ -312,9 +312,14 @@ NET "exp(*)" PULLDOWN;
 NET "gps_rec_sign" LOC = A20 | IOSTANDARD = LVCMOS33; #sign - sync
 NET "gps_rec_mag" LOC = A21 | IOSTANDARD = LVCMOS33; #mag - data
 NET "gps_rec_clk" LOC = B21 | IOSTANDARD = LVCMOS33;
-NET "gps_debug_purple" LOC = B22 | IOSTANDARD = LVCMOS33 | SLEW = FAST;
-NET "gps_debug_blue" LOC = G16 | IOSTANDARD = LVCMOS33 | SLEW = FAST;
-NET "gps_debug_green" LOC = G17 | IOSTANDARD = LVCMOS33 | SLEW = FAST;
+NET "gps_debug_purple" LOC = B22 | IOSTANDARD = LVCMOS33;
+NET "gps_debug_blue" LOC = G16 | IOSTANDARD = LVCMOS33;
+NET "gps_debug_green" LOC = G17 | IOSTANDARD = LVCMOS33;
+
+# Timing
+NET "gps_rec_clk" TNM_NET = "GRPgps_rec_clk";
+TIMESPEC "TSgps_rec_clk" = PERIOD "GRPgps_rec_clk" 60 ns HIGH 50%;
+NET "gps_rec_clk" CLOCK_DEDICATED_ROUTE = FALSE;
 
 # ==== UART1 ====
 # NET "uart1_rx" LOC = G17 | IOSTANDARD = LVCMOS33 | PULLUP;		#IO_L13P_1
