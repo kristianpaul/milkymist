@@ -40,8 +40,8 @@ module time_base (clk, rstn, tic_divide, accum_divide, sample_clk, pre_tic_enabl
    output [23:0] accum_count; // the value of the accum counter
    
    wire [3:0] sc_q; // ouput of divide by 7 counter
-   wire [23:0] tic_q;
-   wire [23:0] accum_q;
+//   wire [23:0] tic_q;
+//   wire [23:0] accum_q;
    reg tic_shift; // used to delay TIC 1 clock cycles
 //   reg toggle; // used to create accum_sample_enable
    
@@ -78,25 +78,26 @@ module time_base (clk, rstn, tic_divide, accum_divide, sample_clk, pre_tic_enabl
    defparam 	 te.lpm_direction="DOWN";
    defparam 	 te.lpm_width=24; */
 
-   reg [23:0] tmp_count_te;
+   reg [23:0] tic_q;
    always @(posedge clk) begin
 	   if(!rstn)
-		   tmp_count_te <=  24'b111111111111111111111111;
+		   tic_q <= 24'b000000000000001111111111;
 	   else if (pre_tic_enable)
-		   tmp_count_te <= tic_divide;
+		   tic_q <= tic_divide;
+	   else if(tic_q == 24'b0)
+		   tic_q <= 24'b111111111111111111111111;
 	   else 
-		   tmp_count_te <= tmp_count_te - 1'b1;
+		   tic_q <= tic_q - 1'b1;
    end
-   assign tic_q = tmp_count_te;
    
  
   // The preTIC comes first latching the code_nco,
   // followed by the TIC latching everything else.
   // This is due to the delay between the code_nco phase
   // and the prompt code.
-   assign 	 pre_tic_enable = (tic_q == 0)? 1:0;
+   assign pre_tic_enable = (tic_q == 0)? 1:0;
 
-   assign    tic_count = tic_q;
+   assign tic_count = tic_q;
    
    always @ (posedge clk)
    begin
@@ -136,19 +137,20 @@ module time_base (clk, rstn, tic_divide, accum_divide, sample_clk, pre_tic_enabl
    defparam 	 ae.lpm_direction="DOWN";
    defparam 	 ae.lpm_width=24;
 */
-   reg [23:0] tmp_count_ae;
+   reg [23:0] accum_q;
    always @(posedge clk) begin
 	   if(!rstn)
-		   tmp_count_ae <=  24'b111111111111111111111111;
+		   accum_q <=  24'b000000000000001111111111;
 	   else if (accum_enable)
-		   tmp_count_ae <= accum_divide;
+		   accum_q <= accum_divide;
+	   else if (accum_enable)
+		   accum_q <= 24'b111111111111111111111111;
 	   else 
-		   tmp_count_ae <= tmp_count_ae - 1'b1;
+		   accum_q <= accum_q - 1'b1;
    end
-   assign accum_q = tmp_count_ae;
 
-   assign 	 accum_enable = (accum_q == 0)? 1:0;
+   assign accum_enable = (accum_q == 0)? 1:0;
   
-   assign    accum_count = accum_q;
+   assign accum_count = accum_q;
 
 endmodule // time_base
