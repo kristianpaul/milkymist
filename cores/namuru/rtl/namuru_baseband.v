@@ -32,7 +32,10 @@ module gps_channel_correlator(
 	input wb_cyc_i,
 	input wb_stb_i,
 	input wb_we_i,
-	output reg wb_ack_o
+	output reg wb_ack_o,
+	output debug_s,
+	output debug_p,
+	output debug_c
 );
 
 wire accum_enable_s;
@@ -43,6 +46,10 @@ wire [23:0] accum_count;
 
 reg sw_rst; // reset to tracking module
 wire rstn; // software generated reset 
+
+assign debug_s = tic_enable;
+assign debug_p = pre_tic_enable;
+assign debug_c = carrier_phase;
 
 // channel 0 registers
 reg [9:0] ch0_prn_key;
@@ -112,7 +119,8 @@ tracking_channel tc0 (
 	.code_val(ch0_code_val),
 	.epoch_load(ch0_epoch_load),
 	.epoch(ch0_epoch),
-	.epoch_check(ch0_epoch_check)
+	.epoch_check(ch0_epoch_check),
+	.carrier_phase(carrier_phase)
 );
 
 // process to create a two clk wide dump_mask pulse
@@ -156,6 +164,7 @@ end
 
 reg next_csr_we;
 reg [31:0] wb_dat_o;
+reg [31:0] temp;
 always @(posedge correlator_clk) begin
 	        if(correlator_rst) begin
 			wb_dat_o <= 32'd0;
@@ -167,8 +176,12 @@ always @(posedge correlator_clk) begin
 			ch0_code_slew <= 11'b0;
 			ch0_epoch_enable <=  1'b0;
 			ch0_epoch_load <= 11'b0;
+			prog_accum_int <= 24'b0;
+			prog_tic <= 24'b0;
 
 			sw_rst <= 1'b0;
+			status_read <= 1'b0;
+			new_data_read <= 1'b0;
 			
 		end else begin
 			wb_dat_o <= 32'd0;
@@ -198,6 +211,7 @@ always @(posedge correlator_clk) begin
 				8'hF0: sw_rst <= wb_dat_i[0:0]; // software reset
 				8'hF1: prog_tic <= wb_dat_i[23:0]; // program TIC
 				8'hF2: prog_accum_int <= wb_dat_i[23:0]; // program ACCUM_INT
+				8'hF3: temp <= wb_dat_i[31:0]; // temp
 
 				endcase
 			end
@@ -239,6 +253,7 @@ always @(posedge correlator_clk) begin
 			end
 				/* control */ 
 				/* nothing to read */
+			8'hF3: wb_dat_o <= temp; // temp
 			endcase
 		end
 	end
