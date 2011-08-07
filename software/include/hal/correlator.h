@@ -1,6 +1,6 @@
 /*
- * Milkymist VJ SoC (Software)
- * Copyright (C) 2007, 2008, 2009, 2010 Sebastien Bourdeauducq
+ * Milkymist SoC (Software)
+ * Copyleft 2011 Cristian Paul Peñarada
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -15,30 +15,11 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-#include <hw/interrupts.h>
-#include <irq.h>
-#include <uart.h>
+#ifndef __HAL_CORRELATOR_H
+#define __HAL_CORRELATOR_H
 
-#include <hal/usb.h>
-#include <hal/tmu.h>
+void correlator_init();
 
-void isr()
-{
-	unsigned int irqs;
+void correlator_isr();
 
-	irqs = irq_pending() & irq_getmask();
-
-	if(irqs & IRQ_UARTRX)
-		uart_isr_rx();
-	if(irqs & IRQ_UARTTX)
-		uart_isr_tx();
-		
-	if(irqs & IRQ_TMU)
-		tmu_isr();
-
-	if(irqs & IRQ_USB)
-		usb_isr();
-
-	if(irqs & IRQ_CORRELATOR)
-		correlator_isr();
-}
+#endif /* __HAL_correlator_H */

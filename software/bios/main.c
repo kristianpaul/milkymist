@@ -155,20 +155,32 @@ static void namuruinit()
 	printf("Initializing Correlator: \n");
 	/* prn */
 	MM_WRITE(CH0_PRN_KEY,0x096);
+	printf("CH0 PRN Key \n");
 	/* carrier nco */
 	MM_WRITE(CH0_CARRIER_NCO,0x9f0000);
+	printf("Carrier NCO\n");
 	/* code nco */
 	MM_WRITE(CH0_CODE_NCO,0x3ff00);
+	printf("CH0 Code NCO\n");
 	/* code slew */
 	MM_WRITE(CH0_CODE_SLEW,0x400); // this will be based upon a variable
-	/* prog tic*/
-	MM_WRITE(PROG_TIC,0x18ffff);
-	/* prog accum int*/
-	MM_WRITE(PROG_ACCUM_INT,0x1fff);
+	printf("CH0 Code SLEW\n");
 	/* epoch load */
 	MM_WRITE(CH0_EPOCH_LOAD,0xff);
+	printf("CH0 Epoch Load\n");
+	/* prog tic*/
+	MM_WRITE(PROG_TIC,0x18ffff);
+	printf("Prog TIC\n");
+	/* prog accum int*/
+	MM_WRITE(PROG_ACCUM_INT,0x1fff);
+	printf("Accum TIC\n");
+	printf("Done\n");
+}
+static void namuruaccum()
+{
 	printf("Accumulators: \n");
 	printf("I_E\tQ_E\tI_P\tQ_P\tI_L\tQ_L\n");
+	/* missing polling accum int pin */
 	while(1)
 	{
 		printf("%02x\t%02x\t%02x\t%02x\t%02x\t%02x\n",(MM_READ(CH0_I_EARLY)),(MM_READ(CH0_Q_EARLY)),(MM_READ(CH0_I_PROMPT)),(MM_READ(CH0_Q_PROMPT)),(MM_READ(CH0_I_LATE)),(MM_READ(CH0_Q_LATE)));
@@ -178,7 +190,7 @@ static void namuruinit()
 			if(c == 'q')
 				break;
 		}
-	}
+	accum}
 	printf("\n");
 }
 
@@ -187,7 +199,7 @@ static void namurustatus()
 	char *c;
 	printf("\n");
 	printf("Status: \n");
-	printf("TI_COUNT\tACCUM_COUNT\tCARRIER_MEASURE\tCODE_MEASURE\tSTATUS\n");
+	printf("TIC_COUNT\tACCUM_COUNT\tCARRIER_MEASURE\tCODE_MEASURE\tSTATUS\n");
 	while(1)
 	{
 		printf("%02d\t\t%02d\t\t%02d\t\t%02d\t\t%02d\n",(MM_READ(TIC_COUNT)),(MM_READ(ACCUM_COUNT)),(MM_READ(CH0_CARRIER_MEASUREMENT)),(MM_READ(CH0_CODE_MEASUREMENT)),(MM_READ(STATUS)));
@@ -529,6 +541,7 @@ static void help()
 	puts("reconf     - reload FPGA configuration");
 	puts("namuruinit - init basic essential registers");
 	puts("namurustatus - dump status to screen");
+	puts("namuruaccum - dump accumlators to screen");
 	puts("memtest1   - memory speed test, use a stopwatch!");
 }
 
@@ -580,6 +593,7 @@ static void do_command(char *c)
 	
 	else if(strcmp(token, "namuruinit") == 0) namuruinit();
 	else if(strcmp(token, "namurustatus") == 0) namurustatus();
+	else if(strcmp(token, "namuruaccum") == 0) namuruaccum();
 	else if(strcmp(token, "memtest1") == 0) memtest1();
 
 	else if(strcmp(token, "rcsr") == 0) rcsr(get_token(&c));
