@@ -49,9 +49,47 @@ enum {
 };
 
 /* namuru registers */
+/* CH0 */
+#define CH0_PRN_KEY	(0xa0000000)
+#define CH0_CARRIER_NCO	(0xa0000004)
+#define CH0_CODE_NCO	(0xa0000008)
+#define CH0_CODE_SLEW	(0xa000000c)
+#define CH0_I_EARLY	(0xa0000010)
+#define CH0_Q_EARLY	(0xa0000014)
+#define CH0_I_PROMPT	(0xa0000018)
+#define CH0_Q_PROMPT	(0xa000001c)
+#define CH0_I_LATE	(0xa0000020)
+#define CH0_Q_LATE	(0xa0000024)
+#define CH0_CARRIER_MEASUREMENT (0xa0000028)
+#define CH0_CODE_MEASUREMENT (0xa000002c)
+#define CH0_EPOCH	(0xa0000030)
+#define CH0_EPOCH_CHECK	(0xa0000034)
+#define CH0_EPOCH_LOAD	(0xa0000038)
 
-#define CH0_PRN_KEY        (0xa0000000)
+/* Status */
+#define STATUS		(0xa0000380)
+#define NEW_DATA	(0xa0000384)
+#define TIC_COUNT	(0xa0000388)
+#define ACCUM_COUNT	(0xa000038c)
+#define HW_ID		(0xa00003bc)
 
+/* Control */
+#define RESET		(0xa00003c0)
+#define PROG_TIC	(0xa00003c4)
+#define PROG_ACCUM_INT 	(0xa00003c8)
+#define TEMP		(0xa00003cc)
+
+/* PRN Codes */
+const int prn_code[38] =
+	{ 0, 0x3f6, 0x3ec, 0x3d8, 0x3b0, 0x04b, 0x096, 0x2cb, 0x196, 0x32c,
+	0x3ba, 0x374, 0x1d0, 0x3a0, 0x340, 0x280, 0x100, 0x113, 0x226,
+	0x04c, 0x098, 0x130, 0x260, 0x267, 0x338, 0x270, 0x0e0, 0x1c0,
+	0x380, 0x22b, 0x056, 0x0ac, 0x158, 0x2b0, 0x058, 0x18b, 0x316, 0x058
+};
+
+/* MMIO */
+#define MM_READ(reg) (*((volatile unsigned int *)(reg)))
+#define MM_WRITE(reg, val) *((volatile unsigned int *)(reg)) = val
 
 /* General address space functions */
 
@@ -93,71 +131,74 @@ static void dump_bytes(unsigned int *ptr, int count, unsigned addr)
 	printf("\n");
 }
 
-static void dump_correlator_bytes(unsigned int *ptr, int count, unsigned addr)
+static void memtest1()
 {
-	char *data = (char *)ptr;
-	int line_bytes = 0, i = 0;
-
-	putsnonl("Memory dump:");
-	while(count > 0){
-		line_bytes =
-			(count > NUMBER_OF_BYTES_ON_A_LINE)?
-				NUMBER_OF_BYTES_ON_A_LINE : count;
-
-		printf("\n0x%08x  ", addr);
-		for(i=0;i<line_bytes;i++)
-			printf("%02x ", *(unsigned char *)(data+i));
-
-		for(;i<NUMBER_OF_BYTES_ON_A_LINE;i++)
-			printf("   ");
-
-		printf(" ");
-
-		for(i=0;i<line_bytes;i++) {
-			if((*(data+i) < 0x20) || (*(data+i) > 0x7e))
-				printf(".");
-			else
-				printf("%c", *(data+i));
+	volatile unsigned int *count_addr = (volatile unsigned int *)0xa00003cc;
+	int i;
+	int j;
+	puts("Start \n");
+	unsigned int buf[100000];
+	for (i = 0; i != 100; i++)
+		for (j = 0; j != sizeof(buf); j++) {
+			buf[j] = *count_addr;
+			if( *count_addr != buf[j]){
+			       	printf("E.");
+			}
 		}
+	puts("Done \n");
+}
 
-		for(;i<NUMBER_OF_BYTES_ON_A_LINE;i++)
-			printf(" ");
-
-		data += (char)line_bytes;
-		count -= line_bytes;
-		addr += line_bytes;
+static void namuruinit()
+{
+	char *c;
+	printf("\n");
+	printf("Initializing Correlator: \n");
+	/* prn */
+	MM_WRITE(CH0_PRN_KEY,0x096);
+	/* carrier nco */
+	MM_WRITE(CH0_CARRIER_NCO,0x9f0000);
+	/* code nco */
+	MM_WRITE(CH0_CODE_NCO,0x3ff00);
+	/* code slew */
+	MM_WRITE(CH0_CODE_SLEW,0x400); // this will be based upon a variable
+	/* prog tic*/
+	MM_WRITE(PROG_TIC,0x18ffff);
+	/* prog accum int*/
+	MM_WRITE(PROG_ACCUM_INT,0x1fff);
+	/* epoch load */
+	MM_WRITE(CH0_EPOCH_LOAD,0xff);
+	printf("Accumulators: \n");
+	printf("I_E\tQ_E\tI_P\tQ_P\tI_L\tQ_L\n");
+	while(1)
+	{
+		printf("%02x\t%02x\t%02x\t%02x\t%02x\t%02x\n",(MM_READ(CH0_I_EARLY)),(MM_READ(CH0_Q_EARLY)),(MM_READ(CH0_I_PROMPT)),(MM_READ(CH0_Q_PROMPT)),(MM_READ(CH0_I_LATE)),(MM_READ(CH0_Q_LATE)));
+		if(readchar_nonblock()) 
+		{
+			c = readchar();
+			if(c == 'q')
+				break;
+		}
 	}
 	printf("\n");
 }
 
-static void wb_delay()
+static void namurustatus()
 {
-	CSR_TIMER0_COUNTER = 0;
-	CSR_TIMER0_COMPARE = brd_desc->clk_frequency >> 2;
-	CSR_TIMER0_CONTROL = TIMER_ENABLE;
-	while(CSR_TIMER0_CONTROL & TIMER_ENABLE);
-}
-static void memtest1()
-{
-	volatile unsigned int *count_addr = (volatile unsigned int *)0xa0000000;
-	int i;
-	int j;
-	puts("Start \n");
-	unsigned int buf[1000000];
-	for (i = 0; i != 100; i++)
-		for (j = 0; j != sizeof(buf); j++)
-			buf[j] = *count_addr;
-	puts("Done \n");
-}
-
-static void hello()
-{
-	puts("hello correlator");
 	char *c;
-	unsigned int length = 1;
-	volatile unsigned int *addr = (volatile unsigned int *)CH0_PRN_KEY;
-
-	dump_correlator_bytes(addr, length, (unsigned)addr);
+	printf("\n");
+	printf("Status: \n");
+	printf("TI_COUNT\tACCUM_COUNT\tCARRIER_MEASURE\tCODE_MEASURE\tSTATUS\n");
+	while(1)
+	{
+		printf("%02d\t\t%02d\t\t%02d\t\t%02d\t\t%02d\n",(MM_READ(TIC_COUNT)),(MM_READ(ACCUM_COUNT)),(MM_READ(CH0_CARRIER_MEASUREMENT)),(MM_READ(CH0_CODE_MEASUREMENT)),(MM_READ(STATUS)));
+		if(readchar_nonblock()) 
+		{
+			c = readchar();
+			if(c == 'q')
+				break;
+		}
+	}
+	printf("\n");
 }
 
 static void mr(char *startaddr, char *len)
@@ -486,8 +527,9 @@ static void help()
 	puts("version    - display version");
 	puts("reboot     - system reset");
 	puts("reconf     - reload FPGA configuration");
-	puts("hello      - hello command and more");
-	puts("memtest1    - memory speed test, use a stopwatch!");
+	puts("namuruinit - init basic essential registers");
+	puts("namurustatus - dump status to screen");
+	puts("memtest1   - memory speed test, use a stopwatch!");
 }
 
 static char *get_token(char **str)
@@ -536,7 +578,8 @@ static void do_command(char *c)
 
 	else if(strcmp(token, "help") == 0) help();
 	
-	else if(strcmp(token, "hello") == 0) hello();
+	else if(strcmp(token, "namuruinit") == 0) namuruinit();
+	else if(strcmp(token, "namurustatus") == 0) namurustatus();
 	else if(strcmp(token, "memtest1") == 0) memtest1();
 
 	else if(strcmp(token, "rcsr") == 0) rcsr(get_token(&c));
