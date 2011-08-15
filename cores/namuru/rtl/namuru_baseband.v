@@ -33,6 +33,8 @@ module gps_channel_correlator(
 	input wb_stb_i,
 	input wb_we_i,
 	output reg wb_ack_o,
+	/* debug */
+	output reg gps_led,
 	output debug_s,
 	output debug_p,
 	output debug_c
@@ -47,8 +49,9 @@ wire [23:0] accum_count;
 reg sw_rst; // reset to tracking module
 wire rstn; // software generated reset 
 
-assign debug_s = tic_enable;
-assign debug_p = pre_tic_enable;
+//assign debug_s = tic_enable;
+assign debug_p = status[0];
+assign debug_s = status_read;
 assign debug_c = carrier_phase;
 
 // channel 0 registers
@@ -182,30 +185,37 @@ always @(posedge correlator_clk) begin
 			sw_rst <= 1'b0;
 			status_read <= 1'b0;
 			new_data_read <= 1'b0;
+
+			gps_led <= 1'b0;
 			
 		end else begin
 			wb_dat_o <= 32'd0;
+
+			status_read <= 1'b0;
+			new_data_read <= 1'b0;
 			if(next_csr_we) begin
 				/* write */
 				case(wb_adr_i[9:2])
 				/* channel 0 */
 				8'h00: begin
-					ch0_prn_key_enable <= 1'b1; 
 					ch0_prn_key <= wb_dat_i[9:0];
 				end
 				8'h01: ch0_carr_nco <= wb_dat_i[28:0];
 				8'h02: ch0_code_nco <= wb_dat_i[27:0];
 				8'h03: begin
-					ch0_slew_enable <= 1'b1;
 					ch0_code_slew <= wb_dat_i[10:0];
 				end
+
 				8'h0E : begin
-					ch0_epoch_enable <=  1'b1;
 					ch0_epoch_load <= wb_dat_i[10:0];
 				end
+				//enable flags for channel tracking logic
+				8'h0F: {ch0_epoch_enable,ch0_slew_enable,ch0_prn_key_enable,ch0_prn_key_enable} <= wb_dat_i[3:0];
 
 				/* status */ 
-				/* nothing to write */
+				8'hE4: begin // clear status flag
+					{new_data_read,status_read} <= wb_dat_i[1:0];
+				end
 
 				/* control */ 
 				8'hF0: sw_rst <= wb_dat_i[0:0]; // software reset
@@ -232,12 +242,10 @@ always @(posedge correlator_clk) begin
 			/* status */ 
 			8'hE0: begin // get status and pulse status_flag to clear status
 				wb_dat_o <= {30'h0, status}; // only 2 status bits, therefore need to pad 30ms bits
-				status_read <= 1'b1; // pulse status flag to clear status register
 			end
 			8'hE1: begin // get new_data
 				wb_dat_o <= {30'h0,new_data}; //one new_data bit per channel, need to pad other bits
 				// pulse the new data flag to clear new_data register
-				new_data_read <= 1'b1;
 				// make sure the flag is not cleared if a dump is aligned to new_data_read
 				dump_mask[0] <= ch0_dump;
 				/* more channels to come */
