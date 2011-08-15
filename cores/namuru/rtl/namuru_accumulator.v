@@ -63,8 +63,8 @@ module accumulator (clk, rstn, sample_enable, code, carrier_mix_sign, carrier_mi
          end
       else if (dump_enable)
 	       begin
-	       accumulation = accum_i; // buffer the accumultion...
-	       accum_i = 0; // then reset the accumulation
+	       accumulation <= accum_i; // buffer the accumultion...
+	       accum_i <= 0; // then reset the accumulation
 	       end
       else if (sample_enable) // 20 MHz rate
 	       begin
