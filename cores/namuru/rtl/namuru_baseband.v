@@ -88,6 +88,7 @@ time_base tb (
 	.pre_tic_enable(pre_tic_enable),
 	.tic_enable(tic_enable),
 	.accum_enable(accum_enable_s),
+//	.accum_sample_enable(accum_sample_enable),
 	.tic_count(tic_count),
 	.accum_count(accum_count)
 );
@@ -99,7 +100,7 @@ assign rstn = ~correlator_rst & ~sw_rst;
 tracking_channel tc0 (
 	.clk(correlator_clk),
 	.rstn(rstn),
-	.accum_sample_enable(accum_sample_enable),
+	.accum_sample_enable(1'b1),
 	.if_sign(sign),
 	.if_mag(mag),
 	.pre_tic_enable(pre_tic_enable),
@@ -193,6 +194,7 @@ always @(posedge correlator_clk) begin
 
 			status_read <= 1'b0;
 			new_data_read <= 1'b0;
+			ch0_prn_key_enable <= 1'b0;
 			if(next_csr_we) begin
 				/* write */
 				case(wb_adr_i[9:2])
