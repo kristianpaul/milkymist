@@ -65,12 +65,14 @@ enum {
 #define CH0_EPOCH	(0xa0000030)
 #define CH0_EPOCH_CHECK	(0xa0000034)
 #define CH0_EPOCH_LOAD	(0xa0000038)
+#define CH0_ENABLES	(0xa000003c)
 
 /* Status */
 #define STATUS		(0xa0000380)
 #define NEW_DATA	(0xa0000384)
 #define TIC_COUNT	(0xa0000388)
 #define ACCUM_COUNT	(0xa000038c)
+#define CLEAR_STATUS	(0xa0000390)
 #define HW_ID		(0xa00003bc)
 
 /* Control */
@@ -153,8 +155,14 @@ static void namuruinit()
 	char *c;
 	printf("\n");
 	printf("Initializing Correlator: \n");
+	/* prog tic*/
+	MM_WRITE(PROG_TIC,0x18ffff);
+	printf("Prog TIC\n");
+	/* prog accum int*/
+	MM_WRITE(PROG_ACCUM_INT,0x1fff);
+	printf("Accum TIC\n");
 	/* prn */
-	MM_WRITE(CH0_PRN_KEY,0x096);
+	MM_WRITE(CH0_PRN_KEY,0x300);
 	printf("CH0 PRN Key \n");
 	/* carrier nco */
 	MM_WRITE(CH0_CARRIER_NCO,0x9f0000);
@@ -165,44 +173,20 @@ static void namuruinit()
 	/* code slew */
 	MM_WRITE(CH0_CODE_SLEW,0x400); // this will be based upon a variable
 	printf("CH0 Code SLEW\n");
+	/* logic enable */
+	MM_WRITE(CH0_ENABLES,0xff);
+	printf("CH0 LOGIC ENABLED\n");
 	/* epoch load */
 	MM_WRITE(CH0_EPOCH_LOAD,0xff);
 	printf("CH0 Epoch Load\n");
-	/* prog tic*/
-	MM_WRITE(PROG_TIC,0x18ffff);
-	printf("Prog TIC\n");
-	/* prog accum int*/
-	MM_WRITE(PROG_ACCUM_INT,0x1fff);
-	printf("Accum TIC\n");
 	printf("Done\n");
 }
-static void namuruaccum()
-{
-	printf("Accumulators: \n");
-	printf("I_E\tQ_E\tI_P\tQ_P\tI_L\tQ_L\n");
-	/* missing polling accum int pin */
-	while(1)
-	{
-		printf("%02x\t%02x\t%02x\t%02x\t%02x\t%02x\n",(MM_READ(CH0_I_EARLY)),(MM_READ(CH0_Q_EARLY)),(MM_READ(CH0_I_PROMPT)),(MM_READ(CH0_Q_PROMPT)),(MM_READ(CH0_I_LATE)),(MM_READ(CH0_Q_LATE)));
-		if(readchar_nonblock()) 
-		{
-			c = readchar();
-			if(c == 'q')
-				break;
-		}
-	accum}
-	printf("\n");
-}
-
-static void namurustatus()
+static void namurumeasure()
 {
 	char *c;
-	printf("\n");
-	printf("Status: \n");
-	printf("TIC_COUNT\tACCUM_COUNT\tCARRIER_MEASURE\tCODE_MEASURE\tSTATUS\n");
 	while(1)
 	{
-		printf("%02d\t\t%02d\t\t%02d\t\t%02d\t\t%02d\n",(MM_READ(TIC_COUNT)),(MM_READ(ACCUM_COUNT)),(MM_READ(CH0_CARRIER_MEASUREMENT)),(MM_READ(CH0_CODE_MEASUREMENT)),(MM_READ(STATUS)));
+		MM_WRITE(CLEAR_STATUS,0x0f);
 		if(readchar_nonblock()) 
 		{
 			c = readchar();
@@ -210,6 +194,49 @@ static void namurustatus()
 				break;
 		}
 	}
+	printf("Bye\n");
+}
+static void namuruaccum()
+{
+	char *c;
+	printf("Accumulators: \n");
+	printf("I_E\tQ_E\tI_P\tQ_P\tI_L\tQ_L\n");
+	/* missing polling accum int pin */
+	while(1)
+	{
+		printf("%02d\t%02d\t%02d\t%02d\t%02d\t%02d\n",(MM_READ(CH0_I_EARLY)),(MM_READ(CH0_Q_EARLY)),(MM_READ(CH0_I_PROMPT)),(MM_READ(CH0_Q_PROMPT)),(MM_READ(CH0_I_LATE)),(MM_READ(CH0_Q_LATE)));
+	MM_WRITE(CLEAR_STATUS,0x0f);
+	MM_WRITE(CH0_ENABLES,0xff);
+		if(readchar_nonblock()) 
+		{
+			c = readchar();
+			if(c == 'q')
+				break;
+		}
+	}
+	printf("\n");
+
+}
+
+static void namurustatus()
+{
+	char *c;
+	printf("\n");
+	printf("Status: \n");
+	printf("TIC_COUNT\tACCUM_COUNT\tCARRIER_MEASURE\tCODE_MEASURE\tSTATUS\tNEW_DATA\n");
+	while(1)
+	{
+		printf("%02d\t\t%02d\t\t%02d\t\t%02d\t\t%02d\t\t%02d\n",(MM_READ(TIC_COUNT)),(MM_READ(ACCUM_COUNT)),(MM_READ(CH0_CARRIER_MEASUREMENT)),(MM_READ(CH0_CODE_MEASUREMENT)),(MM_READ(STATUS)),(MM_READ(NEW_DATA)));
+	MM_WRITE(CLEAR_STATUS,0x0f);
+	MM_WRITE(CH0_ENABLES,0xff);
+		if(readchar_nonblock()) 
+		{
+			c = readchar();
+			if(c == 'q')
+				break;
+		}
+	}
+	MM_WRITE(STATUS,0x0); //clear status_read flag
 	printf("\n");
 }
 
@@ -541,6 +568,7 @@ static void help()
 	puts("reconf     - reload FPGA configuration");
 	puts("namuruinit - init basic essential registers");
 	puts("namurustatus - dump status to screen");
+	puts("namurumeasure - no dump,measure TPs with scope ");
 	puts("namuruaccum - dump accumlators to screen");
 	puts("memtest1   - memory speed test, use a stopwatch!");
 }
@@ -593,6 +621,7 @@ static void do_command(char *c)
 	
 	else if(strcmp(token, "namuruinit") == 0) namuruinit();
 	else if(strcmp(token, "namurustatus") == 0) namurustatus();
+	else if(strcmp(token, "namurumeasure") == 0) namurumeasure();
 	else if(strcmp(token, "namuruaccum") == 0) namuruaccum();
 	else if(strcmp(token, "memtest1") == 0) memtest1();
 
