@@ -212,7 +212,7 @@ always @(posedge correlator_clk) begin
 					ch0_epoch_load <= wb_dat_i[10:0];
 				end
 				//enable flags for channel tracking logic
-				8'h0F: {ch0_epoch_enable,ch0_slew_enable,ch0_prn_key_enable,ch0_prn_key_enable} <= wb_dat_i[3:0];
+				8'h0F: {ch0_epoch_enable,ch0_slew_enable,ch0_prn_key_enable} <= wb_dat_i[2:0];
 
 				/* status */ 
 				8'hE4: begin // clear status flag
