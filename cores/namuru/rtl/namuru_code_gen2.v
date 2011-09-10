@@ -76,12 +76,12 @@ module code_gen (clk, rstn, tic_enable, hc_enable, prn_key_enable, prn_key, code
    defparam   sr.lpm_width= 3; */
   reg [2:0] shift_temp;
   always @(posedge clk) begin
-	  if (prn_key_enable) 
+	  if (prn_key_enable)
 		  shift_temp <= 3'b0;
-		  else
-			  shift_temp <= {shift_temp[1:0], ca_code};
+	  else if (hc_enable)
+		  shift_temp <= {shift_temp[1:0], ca_code};
   end
-  assign srq = shift_temp[2];
+  assign srq = shift_temp;
 
    // The G1 shift register
    //----------------------
