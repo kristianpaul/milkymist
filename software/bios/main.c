@@ -138,15 +138,21 @@ static void memtest1()
 	volatile unsigned int *count_addr = (volatile unsigned int *)0xa00003cc;
 	int i;
 	int j;
+	int errors = 0;
+	int pass = 0;
 	puts("Start \n");
 	unsigned int buf[100000];
 	for (i = 0; i != 100; i++)
 		for (j = 0; j != sizeof(buf); j++) {
-			buf[j] = *count_addr;
+			*count_addr = buf[j];
 			if( *count_addr != buf[j]){
-			       	printf("E.");
+			       //	printf("E. %u", *count_addr);
+			       errors++;
 			}
+			pass++;
 		}
+	printf("Errors: %u \n", errors);
+	printf("Passed: %u \n", pass);
 	puts("Done \n");
 }
 
