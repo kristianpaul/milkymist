@@ -211,7 +211,7 @@ always @(posedge correlator_clk) begin
 				8'h0E : begin
 					ch0_epoch_load <= wb_dat_i[10:0];
 				end
-				//enable flags for channel tracking logic
+				/* enable flags for channel 0 tracking logic */
 				8'h0F: {ch0_epoch_enable,ch0_slew_enable,ch0_prn_key_enable} <= wb_dat_i[2:0];
 
 				/* status */ 
@@ -230,6 +230,11 @@ always @(posedge correlator_clk) begin
 			/* read */
 			case(wb_adr_i[9:2])
 			/* channel 0 */
+			8'h00: wb_dat_o <= {22'h0, ch0_prn_key};
+			8'h01: wb_dat_o <= {3'h0, ch0_carr_nco};
+			8'h02: wb_dat_o <= {4'h0, ch0_code_nco};
+			8'h03: wb_dat_o <= {21'h0, ch0_code_slew};
+			/* accum channel 0 */
 			8'h04: wb_dat_o <= {16'h0, ch0_i_early};
 			8'h05: wb_dat_o <= {16'h0, ch0_q_early};
 			8'h06: wb_dat_o <= {16'h0, ch0_i_prompt};
@@ -240,6 +245,8 @@ always @(posedge correlator_clk) begin
 			8'h0B: wb_dat_o <= {11'h0, ch0_code_val}; // 21 bits
 			8'h0C: wb_dat_o <= {21'h0, ch0_epoch}; // 11 bits
 			8'h0D: wb_dat_o <= {21'h0, ch0_epoch_check}; // 11 bits
+			8'h0E: wb_dat_o <= {21'h0, ch0_epoch_load};
+			8'h0F: wb_dat_o <= {28'h0, ch0_epoch_enable,ch0_slew_enable,ch0_prn_key_enable};
 
 			/* status */ 
 			8'hE0: begin // get status and pulse status_flag to clear status
@@ -258,10 +265,17 @@ always @(posedge correlator_clk) begin
 			8'hE3: begin // accum count read
 				wb_dat_o <= {8'h0,accum_count}; // 24 bits of accum count
 			end
+			8'hE4: begin // accum count read
+				wb_dat_o <= {30'h0,new_data_read,status_read}; // 24 bits of accum count
+			end
 			8'hEF: begin // accum count read
 				wb_dat_o <= 32'h6e6d7275; // HW_TAG nmru
 			end
 				/* control */ 
+			8'hF0: wb_dat_o <= {31'h0,sw_rst};
+			8'hF1: wb_dat_o <= {8'h0,prog_tic};
+			8'hF2: wb_dat_o <= {8'h0,prog_accum_int};
+
 				/* nothing to read */
 			8'hF3: wb_dat_o <= temp; // temp
 			endcase
