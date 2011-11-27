@@ -9,6 +9,7 @@
 *.fbi
 *.swn
 *.swo
+*log*
 boards/milkymist-one/synthesis/build
 boards/milkymist-one/synthesis/build-rescue
 boards/milkymist-one/standby/build
