@@ -30,22 +30,26 @@ module namuru (
 	input wb_we_i,
 
         /* From GPS Receiver */
-        input gps_rec_clk,
+        //input gps_rec_clk,
 	input gps_rec_sign,
 	input gps_rec_mag,
 
 	/* correlator specific */
 	output accum_interrupt,
 
+	/* visual indicator */
+	output gps_led,
+
 	/* Debug */
-	output namuru_stb,
-	output namuru_cyc,
-	output namuru_ack
+	output debug_s,
+	output debug_p,
+	output debug_c
+
 
 );
 
 gps_channel_correlator gps_correlator (
-	.correlator_clk(gps_rec_clk),
+	.correlator_clk(sys_clk),
 	.correlator_rst(sys_rst),
 	.sign(gps_rec_sign),
 	.mag(gps_rec_mag),
@@ -56,17 +60,8 @@ gps_channel_correlator gps_correlator (
 	.wb_sel_i(),
 	.wb_stb_i(wb_stb_i),
 	.wb_cyc_i(wb_cyc_i),
-	.wb_ack_o(wb_ack_o_sync),
-	.wb_we_i(wb_we_i)
+	.wb_ack_o(wb_ack_o),
+	.wb_we_i(wb_we_i),
+	.gps_led(gps_led)
 );
-
-/*CDC Sync from Slave to Master */
-/* ack */
-namuru_psync wb_ack_out(
-	.clk1(gps_rec_clk),
-	.i(wb_ack_o_sync),
-	.clk2(sys_clk),
-	.o(wb_ack_o)
-);
-
 endmodule

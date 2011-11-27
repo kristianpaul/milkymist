@@ -1,8 +1,9 @@
 # ==== Clock input ====
-NET "clk50" LOC = AB11 | IOSTANDARD = LVCMOS33;
+NET "clk16" LOC = A10 | IOSTANDARD = LVCMOS33;
+NET "clk16" CLOCK_DEDICATED_ROUTE = FALSE;
 
-NET "clk50" TNM_NET = "GRPclk50";
-TIMESPEC "TSclk50" = PERIOD "GRPclk50" 20 ns HIGH 50%;
+NET "clk16" TNM_NET = "GRPclk16";
+TIMESPEC "TSclk16" = PERIOD "GRPclk16" 61.04 ns HIGH 50%;
 
 # ==== Flash ====
 NET "flash_adr(0)" LOC = L22;
@@ -66,7 +67,7 @@ NET "btn3" LOC = AB5 | IOSTANDARD = LVCMOS33;
 
 # ==== LEDs ====
 NET "led1" LOC = B16 | IOSTANDARD = LVCMOS33 | SLEW = QUIETIO | DRIVE = 24;
-#NET "led2" LOC = A16 | IOSTANDARD = LVCMOS33 | SLEW = QUIETIO | DRIVE = 24;
+NET "led2" LOC = A16 | IOSTANDARD = LVCMOS33 | SLEW = QUIETIO | DRIVE = 24;
 
 # ==== DDR SDRAM ====
 NET "sdram_adr(0)" LOC = B1;
@@ -186,13 +187,13 @@ NET "vga_sda" LOC = A15 | IOSTANDARD = LVCMOS33 | SLEW = SLOW;
 NET "vga_sdc" LOC = D15 | IOSTANDARD = LVCMOS33 | SLEW = SLOW;
 
 # ==== Memory card ====
-NET "mc_d(0)" LOC = A18;
-NET "mc_d(1)" LOC = E16;
-NET "mc_d(2)" LOC = C17;
-NET "mc_d(3)" LOC = A17;
-NET "mc_cmd" LOC = B18 | IOSTANDARD = LVCMOS33 | PULLUP;
-NET "mc_clk" LOC = A10 | IOSTANDARD = LVCMOS33;
-NET "mc_d(*)" IOSTANDARD = LVCMOS33 | PULLUP;
+#NET "mc_d(0)" LOC = A18;
+#NET "mc_d(1)" LOC = E16;
+#NET "mc_d(2)" LOC = C17;
+#NET "mc_d(3)" LOC = A17;
+#NET "mc_cmd" LOC = B18 | IOSTANDARD = LVCMOS33 | PULLUP;
+#NET "mc_clk" LOC = A10 | IOSTANDARD = LVCMOS33;
+#NET "mc_d(*)" IOSTANDARD = LVCMOS33 | PULLUP;
 
 # ==== AC97 ====
 NET "ac97_clk" LOC = C11 | IOSTANDARD = LVCMOS33;
@@ -312,18 +313,15 @@ NET "exp(*)" PULLDOWN;
 NET "gps_rec_sign" LOC = A20 | IOSTANDARD = LVCMOS33; #sign - sync
 NET "gps_rec_mag" LOC = A21 | IOSTANDARD = LVCMOS33; #mag - data
 NET "gps_rec_clk" LOC = B21 | IOSTANDARD = LVCMOS33;
-NET "gps_debug_purple" LOC = B22 | IOSTANDARD = LVCMOS33;
-NET "gps_debug_blue" LOC = G16 | IOSTANDARD = LVCMOS33;
-NET "gps_debug_green" LOC = G17 | IOSTANDARD = LVCMOS33;
+#NET "gps_debug_purple" LOC = B22 | IOSTANDARD = LVCMOS33;
+#NET "gps_debug_blue" LOC = G16 | IOSTANDARD = LVCMOS33;
+#NET "gps_debug_green" LOC = G17 | IOSTANDARD = LVCMOS33;
 
 # Timing
 NET "gps_rec_clk" TNM_NET = "GRPgps_rec_clk";
 TIMESPEC "TSgps_rec_clk" = PERIOD "GRPgps_rec_clk" 60 ns HIGH 50%;
 NET "gps_rec_clk" CLOCK_DEDICATED_ROUTE = FALSE;
 
-# ==== UART1 ====
-# NET "uart1_rx" LOC = G17 | IOSTANDARD = LVCMOS33 | PULLUP;		#IO_L13P_1
-# NET "uart1_tx" LOC = G16 | IOSTANDARD = LVCMOS33 | SLEW = SLOW;
 
 
 # ==== PCB revision ====
@@ -361,6 +359,6 @@ NET "usb_clk" TNM_NET = "GRPusb";
 TIMESPEC "TSusb_async1" = FROM "GRPsys" TO "GRPusb" TIG;
 TIMESPEC "TSusb_async2" = FROM "GRPusb" TO "GRPsys" TIG;
 
-NET "clk50_IBUFG" TNM_NET = "GRPinput";
+NET "clk16_IBUFG" TNM_NET = "GRPinput";
 TIMESPEC "TSusb_async3" = FROM "GRPinput" TO "GRPusb" TIG;
 TIMESPEC "TSusb_async4" = FROM "GRPusb" TO "GRPinput" TIG;

@@ -20,7 +20,7 @@
 
 
 module system(
-	input clk50,
+	input clk16,
 
 	// Boot ROM
 	output [23:0] flash_adr,
@@ -137,19 +137,11 @@ module system(
 
 	// Expansion connector
 	input [5:0] exp,
-
-	// UART1 
-	//input uart1_rx,
-	//output uart1_tx,
-	
 	// L1 GPS Receiver	
 	input gps_rec_clk,
 	input gps_rec_sign,
 	input gps_rec_mag,
 	//output gps_led,
-	output gps_debug_purple,
-	output gps_debug_blue,
-	output gps_debug_green,
 
 	// PCB revision
 	input [3:0] pcb_revision
@@ -168,17 +160,20 @@ wire sys_clk_dcm;
 wire sys_clk_n_dcm;
 
 DCM_SP #(
-	.CLKDV_DIVIDE(2.0),		// 1.5,2.0,2.5,3.0,3.5,4.0,4.5,5.0,5.5,6.0,6.5
+	.CLKDV_DIVIDE(1.5),		// 1.5,2.0,2.5,3.0,3.5,4.0,4.5,5.0,5.5,6.0,6.5
 
-	.CLKFX_DIVIDE(5),		// 1 to 32
-	.CLKFX_MULTIPLY(8),		// 2 to 32
+	.CLKFX_DIVIDE(1),		// 1 to 32
+	.CLKFX_MULTIPLY(4),		// 2 to 32
 
 	.CLKIN_DIVIDE_BY_2("FALSE"),
-	.CLKIN_PERIOD(20.0),
+	.CLKIN_PERIOD(61.04),
 	.CLKOUT_PHASE_SHIFT("NONE"),
 	.CLK_FEEDBACK("NONE"),
 	.DESKEW_ADJUST("SYSTEM_SYNCHRONOUS"),
+	.DFS_FREQUENCY_MODE("LOW"),
+	.DLL_FREQUENCY_MODE("LOW"),
 	.DUTY_CYCLE_CORRECTION("TRUE"),
+	.FACTORY_JF(16'hF0F0),
 	.PHASE_SHIFT(0),
 	.STARTUP_WAIT("TRUE")
 ) clkgen_sys (
@@ -195,7 +190,7 @@ DCM_SP #(
 	.CLKFX180(sys_clk_n_dcm),
 	.LOCKED(),
 	.CLKFB(),
-	.CLKIN(clk50),
+	.CLKIN(clk16),
 	.RST(1'b0),
 	.PSEN(1'b0)
 );
@@ -381,7 +376,7 @@ wire		norflash_ack,
 // CSR bridge   0x60000000 (shadow @0xe0000000)
 
 // MSB (Bit 31) is ignored for slave address decoding
-conbus5x7 #(
+conbus5x6 #(
 	.s0_addr(3'b000), // norflash
 	.s1_addr(3'b001), // debug
 	.s2_addr(3'b010), // L1 GPS Correlator
@@ -502,7 +497,7 @@ conbus5x7 #(
 	.s4_cyc_o(brg_cyc),
 	.s4_stb_o(brg_stb),
 	.s4_ack_i(brg_ack),
-	// Slave 6
+	// Slave 5
 	.s5_dat_i(csrbrg_dat_r),
 	.s5_dat_o(csrbrg_dat_w),
 	.s5_adr_o(csrbrg_adr),
@@ -1315,6 +1310,7 @@ assign phy_tx_en = 1'b0;
 assign phy_tx_er = 1'b0;
 assign phy_mii_clk = 1'b0;
 assign phy_mii_data = 1'bz;
+assign phy_rst_n = 1'b0;
 `endif
 
 always @(posedge clk50) phy_clk <= ~phy_clk;
@@ -1520,7 +1516,7 @@ DCM_SP #(
 	.CLKFX180(),
 	.LOCKED(),
 	.CLKFB(),
-	.CLKIN(clk50),
+	.CLKIN(clk16),
 	.RST(1'b0),
 
 	.PSEN(1'b0)
@@ -1611,14 +1607,11 @@ namuru baseband (
 		.wb_ack_o(namuru_ack),
 		.wb_we_i(namuru_we),
 
-		.gps_rec_clk(gps_rec_clk),
+////		.gps_rec_clk(gps_rec_clk),
 		.gps_rec_sign(gps_rec_sign),
 		.gps_rec_mag(gps_rec_mag),
 
-		//.gps_led(led2),
-		.namuru_stb(gps_debug_purple),
-		.namuru_ack(gps_debug_blue),
-		.namuru_cyc(gps_debug_green)
-	);
+		.gps_led(led2)
+);
 
 endmodule

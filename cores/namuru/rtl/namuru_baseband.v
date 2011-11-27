@@ -34,10 +34,7 @@ module gps_channel_correlator(
 	input wb_we_i,
 	output reg wb_ack_o,
 	/* debug */
-	output reg gps_led,
-	output debug_s,
-	output debug_p,
-	output debug_c
+	output reg gps_led
 );
 
 wire accum_enable_s;
@@ -49,10 +46,6 @@ wire [23:0] accum_count;
 reg sw_rst; // reset to tracking module
 wire rstn; // software generated reset 
 
-//assign debug_s = tic_enable;
-assign debug_p = status[0];
-assign debug_s = status_read;
-assign debug_c = carrier_phase;
 
 // channel 0 registers
 reg [9:0] ch0_prn_key;
@@ -123,8 +116,7 @@ tracking_channel tc0 (
 	.code_val(ch0_code_val),
 	.epoch_load(ch0_epoch_load),
 	.epoch(ch0_epoch),
-	.epoch_check(ch0_epoch_check),
-	.carrier_phase(carrier_phase)
+	.epoch_check(ch0_epoch_check)
 );
 
 // process to create a two clk wide dump_mask pulse
