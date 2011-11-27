@@ -26,7 +26,7 @@
     Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
 */
 
-module time_base (clk, rstn, tic_divide, accum_divide, sample_clk, pre_tic_enable, tic_enable, accum_enable, tic_count, accum_count);
+module time_base (clk, rstn, tic_divide, accum_divide, sample_clk, pre_tic_enable, tic_enable, accum_enable, accum_sample_enable, tic_count, accum_count);
    
 
    input clk, rstn;
@@ -36,16 +36,17 @@ module time_base (clk, rstn, tic_divide, accum_divide, sample_clk, pre_tic_enabl
    output pre_tic_enable; // to code_nco's
    output tic_enable; // to code_gen's
    output accum_enable; // accumulation interrupt
+   output accum_sample_enable; // accumulators sampling enable (65535/4Hz)
    output [23:0] tic_count; // the value of the TIC counter
    output [23:0] accum_count; // the value of the accum counter
    
-   wire [3:0] sc_q; // ouput of divide by 7 counter
+//   wire [3:0] sc_q; // ouput of divide by 4 counter
 //   wire [23:0] tic_q;
 //   wire [23:0] accum_q;
    reg tic_shift; // used to delay TIC 1 clock cycles
-//   reg toggle; // used to create accum_sample_enable
    
-   // divide by 7 for RF front end (GP2015) sample clock
+   // divide by 4 for RF front end (SiGE 4162) sample clock
+   // SoC uses gps clock by 4 so this should sync the sampling
    // 4 bit counter
    /*lpm_counter sc(
 		.clock(clk),
@@ -59,6 +60,16 @@ module time_base (clk, rstn, tic_divide, accum_divide, sample_clk, pre_tic_enabl
 
    //assign 	 sample_clk = (sc_q == 0)? 1:0;
    //assign    accum_sample_enable = (sc_q == 3)? 1:0; // accumulator sample pulse
+   reg [3:0] sc_q;
+   always @(posedge clk) begin
+	   if(!rstn)
+		   sc_q <= 4'b0;
+	   else if (sc_q == 4)
+		   sc_q <= 4'b0;
+	   else 
+		   sc_q <= sc_q + 1'b1;
+   end
+   assign    accum_sample_enable = (sc_q == 1)? 1:0; // accumulator sample pulse
    
   //--------------------------------------------------
   // generate the tic_enable

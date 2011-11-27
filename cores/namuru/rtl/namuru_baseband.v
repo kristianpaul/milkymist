@@ -81,7 +81,7 @@ time_base tb (
 	.pre_tic_enable(pre_tic_enable),
 	.tic_enable(tic_enable),
 	.accum_enable(accum_enable_s),
-//	.accum_sample_enable(accum_sample_enable),
+	.accum_sample_enable(accum_sample_enable),
 	.tic_count(tic_count),
 	.accum_count(accum_count)
 );
@@ -93,7 +93,7 @@ assign rstn = ~correlator_rst & ~sw_rst;
 tracking_channel tc0 (
 	.clk(correlator_clk),
 	.rstn(rstn),
-	.accum_sample_enable(1'b1),
+	.accum_sample_enable(accum_sample_enable),
 	.if_sign(sign),
 	.if_mag(mag),
 	.pre_tic_enable(pre_tic_enable),
