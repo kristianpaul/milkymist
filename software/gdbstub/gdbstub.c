@@ -29,6 +29,8 @@
 #define SUPPORT_Z_CMD 1
 #define SUPPORT_Q_CMD 1
 
+#define GDBSTUB_UART_SPEED 115200
+
 /* see crt0.S */
 extern void clear_bss(void);
 
@@ -109,17 +111,16 @@ static int memcmp(const void *cs, const void *ct, size_t count)
 
 static char get_debug_char(void)
 {
-    while (!(irq_pending() & IRQ_UARTRX));
-    irq_ack(IRQ_UARTRX);
+    while (!(CSR_UART_STAT & UART_STAT_RX_EVT));
+    CSR_UART_STAT = UART_STAT_RX_EVT;
     return (char)CSR_UART_RXTX;
 }
 
 static void put_debug_char(char c)
 {
     CSR_UART_RXTX = c;
-    /* Blocking on UART pending bit is intended here! Have a
-     * look at the end of handle_exception() too. */
-    while (CSR_UART_BREAK & UART_TX_PENDING);
+    /* loop on THRE, TX_EVT must not be cleared */
+    while (!(CSR_UART_STAT & UART_STAT_THRE));
 }
 
 /*
@@ -506,7 +507,7 @@ static void cmd_mem_read(void)
 
     /* try to read %x,%x */
     if (hex2int(&ptr, &addr) > 0 && *ptr++ == ',' && hex2int(&ptr, &length) > 0
-            && length < (sizeof(remcom_out_buffer) / 2)) {
+            && length <= sizeof(remcom_out_buffer) / 2) {
         if (mem2hex((char *)addr, remcom_out_buffer, length) == NULL) {
             strcpy(remcom_out_buffer, "E14");
         }
@@ -666,12 +667,24 @@ static void cmd_query(void)
 #endif
 
 /*
- * This function does all command procesing for interfacing to gdb. The error
+ * This function does all command processing for interfacing to gdb. The error
  * codes we return are errno numbers.
  */
 void handle_exception(unsigned int *registers)
 {
-    int irq;
+    unsigned int stat;
+    unsigned int uart_div;
+    unsigned int dbg_ctrl;
+
+    /*
+     * make sure break is disabled.
+     * we can enter the stub with break enabled when the application calls it.
+     * there is a race condition here if the break is asserted before this line
+     * is executed, but the race window is small. to prevent it completely,
+     * applications should disable debug exceptions before jumping to debug
+     * ROM.
+     */
+    CSR_UART_DEBUG = 0;
 
     /* clear BSS there was a board reset */
     if (!CSR_DBG_SCRATCHPAD) {
@@ -679,11 +692,19 @@ void handle_exception(unsigned int *registers)
         clear_bss();
     }
 
-    /* wait until TX transaction is finished */
-    while (CSR_UART_BREAK & UART_TX_PENDING);
+    /* disable bus errors */
+    dbg_ctrl = CSR_DBG_CTRL;
+    CSR_DBG_CTRL = 0;
 
-    /* remember if irq was set */
-    irq = irq_pending() & IRQ_UARTTX;
+    /* wait until TX transaction is finished. If there was a transmission in
+     * progress, the event bit will be set. In this case, the gdbstub won't clear
+     * it after it is terminated. */
+    while(!(CSR_UART_STAT & UART_STAT_THRE));
+    stat = CSR_UART_STAT;
+
+    /* save UART divider and set own speed */
+    uart_div = CSR_UART_DIVISOR;
+    CSR_UART_DIVISOR = CSR_FREQUENCY / 16 / GDBSTUB_UART_SPEED;
 
     /* reply to host that an exception has occured */
     if (gdb_connected) {
@@ -758,11 +779,15 @@ void handle_exception(unsigned int *registers)
 out:
     flush_cache();
 
-    /* ack TX IRQ only if it wasn't set before */
-    if (!irq) {
-        irq_ack(IRQ_UARTTX);
-    }
+    /* clear TX event if there was no transmission in progress */
+    CSR_UART_STAT = stat & UART_STAT_TX_EVT;
+
+    /* restore UART divider */
+    CSR_UART_DIVISOR = uart_div;
+
+    /* restore dbg control register */
+    CSR_DBG_CTRL = dbg_ctrl;
 
     /* reenable break */
-    CSR_UART_BREAK = UART_BREAK_EN;
+    CSR_UART_DEBUG = UART_DEBUG_BREAK_EN;
 }

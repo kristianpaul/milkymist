@@ -1,5 +1,5 @@
 /*
- * Milkymist VJ SoC (Software)
+ * Milkymist SoC (Software)
  * Copyright (C) 2007, 2008, 2009, 2010 Sebastien Bourdeauducq
  *
  * This program is free software: you can redistribute it and/or modify
@@ -28,10 +28,8 @@ void isr()
 
 	irqs = irq_pending() & irq_getmask();
 
-	if(irqs & IRQ_UARTRX)
-		uart_isr_rx();
-	if(irqs & IRQ_UARTTX)
-		uart_isr_tx();
+	if(irqs & IRQ_UART)
+		uart_isr();
 		
 	if(irqs & IRQ_TMU)
 		tmu_isr();

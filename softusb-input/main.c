@@ -1,6 +1,7 @@
 /*
- * Milkymist VJ SoC (USB firmware)
- * Copyright (C) 2007, 2008, 2009, 2010 Sebastien Bourdeauducq
+ * Milkymist SoC (USB firmware)
+ * Copyright (C) 2007, 2008, 2009, 2010, 2011 Sebastien Bourdeauducq
+ * Copyright (C) 2011 Werner Almesberger
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -26,10 +27,23 @@
 #include "host.h"
 #include "crc.h"
 
+//#define	TRIGGER
+
+enum {
+	USB_PID_OUT	= 0xe1,
+	USB_PID_IN	= 0x69,
+	USB_PID_SETUP	= 0x2d,
+	USB_PID_DATA0	= 0xc3,
+	USB_PID_DATA1	= 0x4b,
+	USB_PID_SOF	= 0xa5,
+	USB_PID_ACK	= 0xd2,
+	USB_PID_NAK	= 0x5a,
+};
+
 enum {
 	PORT_STATE_DISCONNECTED = 0,
 	PORT_STATE_BUS_RESET,
-	PORT_STATE_WARMUP,
+	PORT_STATE_RESET_WAIT,
 	PORT_STATE_SET_ADDRESS,
 	PORT_STATE_GET_DEVICE_DESCRIPTOR,
 	PORT_STATE_GET_CONFIGURATION_DESCRIPTOR,
@@ -38,20 +52,28 @@ enum {
 	PORT_STATE_UNSUPPORTED
 };
 
+#define	RESET_RECOVERY_MS	50	/* USB 2.0, 7.1.7.5: >= 10 ms */
+
+struct ep_status {
+	char ep;
+	unsigned char expected_data;
+};
+
 struct port_status {
 	char state;
-	char fs;
-	char keyboard;
+	char full_speed;
 	char retry_count;
 	unsigned int unreset_frame;
-
-	unsigned char expected_data;
+	struct ep_status keyboard;
+	struct ep_status mouse;
 };
 
 static struct port_status port_a;
 static struct port_status port_b;
 
 static unsigned int frame_nr;
+
+#define	ADDR_EP(addr, ep)	((addr) | (ep) << 7)
 
 static void make_usb_token(unsigned char pid, unsigned int elevenbits, unsigned char *out)
 {
@@ -61,62 +83,181 @@ static void make_usb_token(unsigned char pid, unsigned int elevenbits, unsigned 
 	out[2] |= usb_crc5(out[1], out[2]) << 3;
 }
 
-static void usb_tx(unsigned char *buf, unsigned char len)
+static void usb_tx(const unsigned char *buf, unsigned char len)
 {
 	unsigned char i;
 
 	wio8(SIE_TX_DATA, 0x80); /* send SYNC */
-	while(rio8(SIE_TX_PENDING));
 	for(i=0;i<len;i++) {
-		wio8(SIE_TX_DATA, buf[i]);
 		while(rio8(SIE_TX_PENDING));
+		wio8(SIE_TX_DATA, buf[i]);
 	}
+	while(rio8(SIE_TX_PENDING));
 	wio8(SIE_TX_VALID, 0);
 	while(rio8(SIE_TX_BUSY));
 }
 
-static const char transfer_start[] PROGMEM = "Transfer start: ";
+static inline void usb_ack(void)
+{
+	wio8(SIE_TX_DATA, 0x80); /* send SYNC */
+	while(rio8(SIE_TX_PENDING));
+	wio8(SIE_TX_DATA, USB_PID_ACK); /* send SYNC */
+	while(rio8(SIE_TX_PENDING));
+	wio8(SIE_TX_VALID, 0);
+	while(rio8(SIE_TX_BUSY));
+}
+
+static const char ack_error[] PROGMEM = "ACK: ";
 static const char timeout_error[] PROGMEM = "RX timeout error\n";
 static const char bitstuff_error[] PROGMEM = "RX bitstuff error\n";
 
-static unsigned char usb_rx(unsigned char *buf, unsigned char maxlen)
+#define	WAIT_RX(first, end)					\
+	do {							\
+		unsigned timeout = 0x200;			\
+		while(!rio8(SIE_RX_PENDING)) {			\
+			if(!--timeout)				\
+				goto timeout;			\
+			if(rio8(SIE_RX_ERROR))			\
+				goto error;			\
+			if(!first && !rio8(SIE_RX_ACTIVE))	\
+				goto end;			\
+		}						\
+	} while (0)
+
+
+static char usb_rx_ack(void)
 {
-	unsigned int timeout;
+	unsigned char pid;
 	unsigned char i;
 
-	i = 0;
-	timeout = 0xfff;
-	while(!rio8(SIE_RX_PENDING)) {
-		if(timeout-- == 0) {
-			print_string(transfer_start);
-			print_string(timeout_error);
-			return 0;
-		}
-		if(rio8(SIE_RX_ERROR)) {
-			print_string(transfer_start);
-			print_string(bitstuff_error);
-			return 0;
-		}
+	/* SYNC */
+	WAIT_RX(1, nothing);
+
+	/* PID */
+	WAIT_RX(0, nothing);
+	pid = rio8(SIE_RX_DATA);
+
+	/* wait for idle, or simply time out and fall foward */
+	for(i = 200; i; i--)
+		if(!rio8(SIE_RX_ACTIVE))
+			break;
+
+	if(pid == USB_PID_ACK)
+		return 1;
+	if(pid == USB_PID_NAK)
+		return 0;
+
+	for(i = 200; i; i--)
+		WAIT_RX(0,out);
+out:
+	print_string(ack_error);
+	print_hex(pid);
+	print_char('\n');
+	return -1;
+
+timeout:
+	print_string(timeout_error);
+nothing:
+	return 0;
+error:
+	print_string(bitstuff_error);
+	return 0;
+}
+
+static const char in_reply[] PROGMEM = "IN reply:\n";
+static const char datax_mismatch[] PROGMEM = "DATAx mismatch\n";
+
+static int usb_in(unsigned addr, unsigned char expected_data,
+    unsigned char *buf, unsigned char maxlen)
+{
+	unsigned char in[3];
+	unsigned char len = 1;
+	unsigned char i;
+
+	/* send IN */
+	make_usb_token(USB_PID_IN, addr, in);
+	usb_tx(in, 3);
+
+	/* SYNC */
+	WAIT_RX(1, nothing);
+
+	/* PID */
+	WAIT_RX(0, nothing);
+	buf[0] = rio8(SIE_RX_DATA);
+
+	if(buf[0] == expected_data)
+		goto receive;
+	if(buf[0] == USB_PID_DATA0 || buf[0] == USB_PID_DATA1)
+		goto ignore;
+	if(buf[0] == USB_PID_NAK)
+		return 0;
+
+	/* unknown packet: try to receive for debug purposes, then dump */
+
+	while(len != maxlen) {
+		WAIT_RX(0, fail);
+		buf[len++] = rio8(SIE_RX_DATA);
 	}
+fail:
+	print_string(in_reply);
+	dump_hex(buf, len);
+	return -1;
+
+	/* bad sequence bit: wait until packet has arrived, then ack */
+
+ignore:
+	for(i = 200; i; i--)
+		WAIT_RX(0, ignore_eop);
+	goto complain; /* this doesn't stop - just quit silently */
+ignore_eop:
+	usb_ack();
+complain:
+	print_string(datax_mismatch);
+	return 0;
+
+	/* receive the rest of the (good) packet */
+
+receive:
 	while(1) {
-		timeout = 0xfff;
-		while(!rio8(SIE_RX_PENDING)) {
-			if(rio8(SIE_RX_ERROR)) {
-				print_string(bitstuff_error);
-				return 0;
-			}
-			if(!rio8(SIE_RX_ACTIVE))
-				return i;
-			if(timeout-- == 0) {
-				print_string(timeout_error);
-				return 0;
-			}
-		}
-		if(i == maxlen)
-			return 0;
-		buf[i] = rio8(SIE_RX_DATA);
-		i++;
+		WAIT_RX(0, eop);
+		if(len == maxlen)
+			goto discard;
+		buf[len++] = rio8(SIE_RX_DATA);
 	}
+eop:
+	usb_ack();
+	return len;
+
+discard:
+	for(i = 200; i; i--)
+		WAIT_RX(0, nothing);
+nothing:
+	return 0;
+
+timeout:
+	print_string(timeout_error);
+	return 0;
+
+error:
+	print_string(bitstuff_error);
+	return 0;
+}
+
+static const char out_reply[] PROGMEM = "OUT/DATA reply:\n";
+
+static char usb_out(unsigned addr, const unsigned char *buf, unsigned char len)
+{
+	unsigned char out[3];
+
+	/* send OUT */
+	make_usb_token(USB_PID_OUT, addr, out);
+	usb_tx(out, 3);
+
+	/* send DATAx */
+	usb_tx(buf, len);
+
+	/* receive ACK */
+	return usb_rx_ack();
 }
 
 struct setup_packet {
@@ -127,45 +268,41 @@ struct setup_packet {
 	unsigned char wLength[2];
 } __attribute__((packed));
 
-static inline unsigned char get_data_token(char *toggle)
+static inline unsigned char toggle(unsigned char old)
 {
-	*toggle = !(*toggle);
-	if(*toggle)
-		return 0xc3;
-	else
-		return 0x4b;
+	return old ^ USB_PID_DATA0 ^ USB_PID_DATA1;
 }
 
-static const char control_failed[] PROGMEM = "Control transfer failed:\n";
-static const char termination[] PROGMEM = "(termination)\n";
-static const char setup_reply[] PROGMEM = "SETUP reply:\n";
-static const char in_reply[] PROGMEM = "OUT/DATA reply:\n";
-static const char out_reply[] PROGMEM = "IN reply:\n";
+static const char setup_ack[] PROGMEM = "SETUP not ACKed\n";
 
-static char control_transfer(unsigned char addr, struct setup_packet *p, char out, unsigned char *payload, int maxlen)
+static int control_transfer(unsigned char addr, struct setup_packet *p,
+    char out, unsigned char *payload, int maxlen)
 {
+	unsigned char setup[11];
 	unsigned char usb_buffer[11];
-	char toggle;
+	unsigned char expected_data = USB_PID_DATA1;
 	char rxlen;
 	char transferred;
 	char chunklen;
 
-	toggle = 0;
-
-	/* send SETUP token */
-	make_usb_token(0x2d, addr, usb_buffer);
-	usb_tx(usb_buffer, 3);
-	/* send setup packet */
-	usb_buffer[0] = get_data_token(&toggle);
+	/* generate SETUP token */
+	make_usb_token(USB_PID_SETUP, addr, setup);
+	/* generate setup packet */
+	usb_buffer[0] = USB_PID_DATA0;
 	memcpy(&usb_buffer[1], p, 8);
 	usb_crc16(&usb_buffer[1], 8, &usb_buffer[9]);
+#ifdef TRIGGER
+wio8(SIE_SEL_TX, 3);
+#endif
+	/* send them back-to-back */
+	usb_tx(setup, 3);
 	usb_tx(usb_buffer, 11);
+#ifdef TRIGGER
+wio8(SIE_SEL_TX, 2);
+#endif
 	/* get ACK token from device */
-	rxlen = usb_rx(usb_buffer, 11);
-	if((rxlen != 1) || (usb_buffer[0] != 0xd2)) {
-		print_string(control_failed);
-		print_string(setup_reply);
-		dump_hex(usb_buffer, rxlen);
+	if(usb_rx_ack() != 1) {
+		print_string(setup_ack);
 		return -1;
 	}
 
@@ -179,25 +316,17 @@ static char control_transfer(unsigned char addr, struct setup_packet *p, char ou
 			if(chunklen > 8)
 				chunklen = 8;
 
-			/* send OUT token */
-			make_usb_token(0xe1, addr, usb_buffer);
-			usb_tx(usb_buffer, 3);
-			/* send DATAx packet */
-			usb_buffer[0] = get_data_token(&toggle);
+			/* make DATAx packet */
+			usb_buffer[0] = expected_data;
 			memcpy(&usb_buffer[1], payload, chunklen);
 			usb_crc16(&usb_buffer[1], chunklen, &usb_buffer[chunklen+1]);
-			usb_tx(usb_buffer, chunklen+3);
-			/* get ACK from device */
-			rxlen = usb_rx(usb_buffer, 11);
-			if((rxlen != 1) || (usb_buffer[0] != 0xd2)) {
-				if((rxlen > 0) && (usb_buffer[0] == 0x5a))
-					continue; /* NAK: retry */
-				print_string(control_failed);
-				print_string(out_reply);
-				dump_hex(usb_buffer, rxlen);
+			rxlen = usb_out(addr, usb_buffer, chunklen+3);
+			if(!rxlen)
+				continue;
+			if(rxlen < 0)
 				return -1;
-			}
 
+			expected_data = toggle(expected_data);
 			transferred += chunklen;
 			payload += chunklen;
 			if(chunklen < 8)
@@ -205,27 +334,17 @@ static char control_transfer(unsigned char addr, struct setup_packet *p, char ou
 		}
 	} else if(maxlen != 0) {
 		while(1) {
-			/* send IN token */
-			make_usb_token(0x69, addr, usb_buffer);
-			usb_tx(usb_buffer, 3);
-			/* get DATAx packet */
-			rxlen = usb_rx(usb_buffer, 11);
-			if((rxlen < 3) || ((usb_buffer[0] != 0xc3) && (usb_buffer[0] != 0x4b))) {
-				if((rxlen > 0) && (usb_buffer[0] == 0x5a))
-					continue; /* NAK: retry */
-				print_string(control_failed);
-				print_string(in_reply);
-				dump_hex(usb_buffer, rxlen);
-				return -1;
-			}
+			rxlen = usb_in(addr, expected_data, usb_buffer, 11);
+			if(!rxlen)
+				continue;
+			if(rxlen <0)
+				return rxlen;
+
+			expected_data = toggle(expected_data);
 			chunklen = rxlen - 3; /* strip token and CRC */
 			if(chunklen > (maxlen - transferred))
 				chunklen = maxlen - transferred;
 			memcpy(payload, &usb_buffer[1], chunklen);
-
-			/* send ACK token */
-			usb_buffer[0] = 0xd2;
-			usb_tx(usb_buffer, 1);
 
 			transferred += chunklen;
 			payload += chunklen;
@@ -236,90 +355,70 @@ static char control_transfer(unsigned char addr, struct setup_packet *p, char ou
 
 	/* send IN/OUT token in the opposite direction to end transfer */
 retry:
-	make_usb_token(out ? 0x69 : 0xe1, addr, usb_buffer);
-	usb_tx(usb_buffer, 3);
 	if(out) {
-		/* get DATAx packet */
-		rxlen = usb_rx(usb_buffer, 11);
-		if((rxlen != 3) || ((usb_buffer[0] != 0xc3) && (usb_buffer[0] != 0x4b))) {
-			if((rxlen > 0) && (usb_buffer[0] == 0x5a))
-				goto retry; /* NAK: retry */
-			print_string(control_failed);
-			print_string(termination);
-			print_string(in_reply);
-			dump_hex(usb_buffer, rxlen);
+		rxlen = usb_in(addr, USB_PID_DATA1, usb_buffer, 11);
+		if(!rxlen)
+			goto retry;
+		if(rxlen < 0)
 			return -1;
-		}
-		/* send ACK token */
-		usb_buffer[0] = 0xd2;
-		usb_tx(usb_buffer, 1);
 	} else {
-		/* send DATAx packet */
-		usb_buffer[0] = get_data_token(&toggle);
+		/* make DATA1 packet */
+		usb_buffer[0] = USB_PID_DATA1;
 		usb_buffer[1] = usb_buffer[2] = 0x00; /* CRC is 0x0000 without data */
-		usb_tx(usb_buffer, 3);
-		/* get ACK token from device */
-		rxlen = usb_rx(usb_buffer, 11);
-		if((rxlen != 1) || (usb_buffer[0] != 0xd2)) {
-			if((rxlen > 0) && (usb_buffer[0] == 0x5a))
-				goto retry; /* NAK: retry */
-			print_string(control_failed);
-			print_string(termination);
-			print_string(out_reply);
-			dump_hex(usb_buffer, rxlen);
+
+		rxlen = usb_out(addr, usb_buffer, 3);
+		if(!rxlen)
+			goto retry;
+		if(!rxlen < 0)
 			return -1;
-		}
 	}
 
 	return transferred;
 }
 
-static const char datax_mismatch[] PROGMEM = "DATAx mismatch\n";
-static void poll(struct port_status *p)
+static void poll(struct ep_status *ep, char keyboard)
 {
 	unsigned char usb_buffer[11];
-	unsigned char len;
+	int len;
 	unsigned char m;
 	char i;
 
-	/* IN */
-	make_usb_token(0x69, 0x081, usb_buffer);
-	usb_tx(usb_buffer, 3);
-	/* DATAx */
-	len = usb_rx(usb_buffer, 11);
-	if(len < 7)
+	len = usb_in(ADDR_EP(1, ep->ep), ep->expected_data, usb_buffer, 11);
+	if(len <= 0)
 		return;
-	if(usb_buffer[0] != p->expected_data) {
-		if((usb_buffer[0] == 0xc3) || (usb_buffer[0] == 0x4b)) {
-			/* ACK */
-			usb_buffer[0] = 0xd2;
-			usb_tx(usb_buffer, 1);
-			print_string(datax_mismatch);
-		}
-		return; /* drop */
-	}
-	/* ACK */
-	usb_buffer[0] = 0xd2;
-	usb_tx(usb_buffer, 1);
-	if(p->expected_data == 0xc3)
-		p->expected_data = 0x4b;
-	else
-		p->expected_data = 0xc3;
+	ep->expected_data = toggle(ep->expected_data);
+
 	/* send to host */
-	if(p->keyboard) {
-		if(len >= 9) {
-			m = COMLOC_KEVT_PRODUCE;
-			for(i=0;i<8;i++)
-				COMLOC_KEVT(8*m+i) = usb_buffer[i+1];
-			COMLOC_KEVT_PRODUCE = (m + 1) & 0x07;
-		}
+	if(keyboard) {
+		if(len < 9)
+			return;
+		m = COMLOC_KEVT_PRODUCE;
+		for(i=0;i<8;i++)
+			COMLOC_KEVT(8*m+i) = usb_buffer[i+1];
+		COMLOC_KEVT_PRODUCE = (m + 1) & 0x07;
 	} else {
-		if(len >= 7) {
-			m = COMLOC_MEVT_PRODUCE;
-			for(i=0;i<4;i++)
-				COMLOC_MEVT(4*m+i) = usb_buffer[i+1];
-			COMLOC_MEVT_PRODUCE = (m + 1) & 0x0f;
+		if(len < 6)
+			return;
+		/*
+		 * HACK: The Rii RF mini-keyboard sends ten byte messages with
+		 * a report ID and 16 bit coordinates. We're too lazy to parse
+		 * report descriptors, so we just hard-code that report layout.
+		 */
+		if(len == 10) {
+			usb_buffer[1] = usb_buffer[2];	/* buttons */
+			usb_buffer[2] = usb_buffer[3];	/* X LSB */
+			usb_buffer[3] = usb_buffer[5];	/* Y LSB */
 		}
+		if(len > 7)
+			len = 7;
+		m = COMLOC_MEVT_PRODUCE;
+		for(i=0;i<len-3;i++)
+			COMLOC_MEVT(4*m+i) = usb_buffer[i+1];
+		while(i < 4) {
+			COMLOC_MEVT(4*m+i) = 0;
+			i++;
+		}
+		COMLOC_MEVT_PRODUCE = (m + 1) & 0x0f;
 	}
 	/* trigger host IRQ */
 	wio8(HOST_IRQ, 1);
@@ -340,11 +439,14 @@ static void check_discon(struct port_status *p, char name)
 	if(discon) {
 		print_string(disconnect); print_char(name); print_char('\n');
 		p->state = PORT_STATE_DISCONNECTED;
+		p->keyboard.ep = p->mouse.ep = 0;
 	}
 }
 
-static char validate_configuration_descriptor(unsigned char *descriptor, char len, char *keyboard)
+static char validate_configuration_descriptor(unsigned char *descriptor,
+    char len, struct port_status *p)
 {
+	struct ep_status *ep = NULL;
 	char offset;
 
 	offset = 0;
@@ -353,30 +455,36 @@ static char validate_configuration_descriptor(unsigned char *descriptor, char le
 			/* got an interface descriptor */
 			/* check for bInterfaceClass=3 and bInterfaceSubClass=1 (HID) */
 			if((descriptor[offset+5] != 0x03) || (descriptor[offset+6] != 0x01))
-				return 0;
+				break;
 			/* check bInterfaceProtocol */
 			switch(descriptor[offset+7]) {
 				case 0x01:
-					*keyboard = 1;
-					return 1;
+					ep = &p->keyboard;
+					break;
 				case 0x02:
-					*keyboard = 0;
-					return 1;
+					ep = &p->mouse;
+					break;
 				default:
 					/* unknown protocol, fail */
-					return 0;
+					ep = NULL;
+					break;
 			}
+		} else if(descriptor[offset+1] == 0x05 &&
+		    (descriptor[offset+2] & 0x80) && ep) {
+				ep->ep = descriptor[offset+2] & 0x7f;
+				ep->expected_data = USB_PID_DATA0;
+				    /* start with DATA0 */
+				ep = NULL;
 		}
 		offset += descriptor[offset+0];
 	}
-	/* no interface descriptor found, fail */
-	return 0;
+	return p->keyboard.ep || p->mouse.ep;
 }
 
 static const char retry_exceed[] PROGMEM = "Retry count exceeded, disabling device.\n";
 static void check_retry(struct port_status *p)
 {
-	if(p->retry_count++ > 20) {
+	if(p->retry_count++ > 4) {
 		print_string(retry_exceed);
 		p->state = PORT_STATE_UNSUPPORTED;
 	}
@@ -397,6 +505,10 @@ static void port_service(struct port_status *p, char name)
 		 * transmission takes place.
 		 */
 		check_discon(p, name);
+	if(p->full_speed)
+		wio8(SIE_TX_LOW_SPEED, 0);
+	else
+		wio8(SIE_TX_LOW_SPEED, 1);
 	switch(p->state) {
 		case PORT_STATE_DISCONNECTED: {
 			char linestat;
@@ -406,12 +518,13 @@ static void port_service(struct port_status *p, char name)
 				linestat = rio8(SIE_LINE_STATUS_B);
 			if(linestat == 0x01) {
 				print_string(connect_fs); print_char(name); print_char('\n');
-				p->fs = 1;
-				p->state = PORT_STATE_UNSUPPORTED;
+				p->full_speed = 1;
 			}
 			if(linestat == 0x02) {
 				print_string(connect_ls); print_char(name); print_char('\n');
-				p->fs = 0;
+				p->full_speed = 0;
+			}
+			if((linestat == 0x01)||(linestat == 0x02)) {
 				if(name == 'A')
 					wio8(SIE_TX_BUSRESET, rio8(SIE_TX_BUSRESET) | 0x01);
 				else
@@ -422,19 +535,21 @@ static void port_service(struct port_status *p, char name)
 			break;
 		}
 		case PORT_STATE_BUS_RESET:
-			if(frame_nr == p->unreset_frame) {
-				if(name == 'A')
-					wio8(SIE_TX_BUSRESET, rio8(SIE_TX_BUSRESET) & 0x02);
-				else
-					wio8(SIE_TX_BUSRESET, rio8(SIE_TX_BUSRESET) & 0x01);
-				p->state = PORT_STATE_WARMUP;
-			}
+			if(frame_nr != p->unreset_frame)
+				break;
+			if(name == 'A')
+				wio8(SIE_TX_BUSRESET, rio8(SIE_TX_BUSRESET) & 0x02);
+			else
+				wio8(SIE_TX_BUSRESET, rio8(SIE_TX_BUSRESET) & 0x01);
+			p->state = PORT_STATE_RESET_WAIT;
+			p->unreset_frame =
+			    (frame_nr + RESET_RECOVERY_MS) & 0x7ff;
 			break;
-		case PORT_STATE_WARMUP:
-			if(frame_nr == ((p->unreset_frame + 250) & 0x7ff)) {
-				p->retry_count = 0;
-				p->state = PORT_STATE_SET_ADDRESS;
-			}
+		case PORT_STATE_RESET_WAIT:
+			if(frame_nr != p->unreset_frame)
+				break;
+			p->state = PORT_STATE_SET_ADDRESS;
+			p->retry_count = 0;
 			break;
 		case PORT_STATE_SET_ADDRESS: {
 			struct setup_packet packet;
@@ -458,7 +573,7 @@ static void port_service(struct port_status *p, char name)
 		case PORT_STATE_GET_DEVICE_DESCRIPTOR: {
 			struct setup_packet packet;
 			unsigned char device_descriptor[18];
-
+			
 			packet.bmRequestType = 0x80;
 			packet.bRequest = 0x06;
 			packet.wValue[0] = 0x00;
@@ -506,15 +621,19 @@ static void port_service(struct port_status *p, char name)
 			len = control_transfer(0x01, &packet, 0, configuration_descriptor, 127);
 			if(len >= 0) {
 				p->retry_count = 0;
-				if(!validate_configuration_descriptor(configuration_descriptor, len, &p->keyboard)) {
+				if(!validate_configuration_descriptor(
+				    configuration_descriptor, len, p)) {
 					print_string(found); print_string(unsupported_device);
 					p->state = PORT_STATE_UNSUPPORTED;
 				} else {
-					print_string(found);
-					if(p->keyboard)
+					if(p->keyboard.ep) {
+						print_string(found);
 						print_string(keyboard);
-					else
+					}
+					if(p->mouse.ep) {
+						print_string(found);
 						print_string(mouse);
+					}
 					p->state = PORT_STATE_SET_CONFIGURATION;
 				}
 			}
@@ -535,32 +654,79 @@ static void port_service(struct port_status *p, char name)
 
 			if(control_transfer(0x01, &packet, 1, NULL, 0) == 0) {
 				p->retry_count = 0;
-				p->expected_data = 0xc3; /* start with DATA0 */
 				p->state = PORT_STATE_RUNNING;
 			}
 			check_retry(p);
 			break;
 		}
 		case PORT_STATE_RUNNING:
-			poll(p);
+			if(p->keyboard.ep)
+				poll(&p->keyboard, 1);
+			if(p->mouse.ep)
+				poll(&p->mouse, 0);
 			break;
 		case PORT_STATE_UNSUPPORTED:
 			break;
 	}
+	while(rio8(SIE_TX_BUSY));
 }
 
 static const char banner[] PROGMEM = "softusb-input v"VERSION"\n";
 
-int main()
+static void sof()
 {
 	unsigned char mask;
+	unsigned char usb_buffer[3];
+	
+	mask = 0;
+#ifndef TRIGGER
+	if(port_a.full_speed && (port_a.state > PORT_STATE_BUS_RESET))
+		mask |= 0x01;
+#endif
+	if(port_b.full_speed && (port_b.state > PORT_STATE_BUS_RESET))
+		mask |= 0x02;
+	if(mask != 0) {
+		wio8(SIE_TX_LOW_SPEED, 0);
+		wio8(SIE_SEL_TX, mask);
+		make_usb_token(USB_PID_SOF, frame_nr, usb_buffer);
+		usb_tx(usb_buffer, 3);
+	}
+}
+
+static void keepalive()
+{
+	unsigned char mask;
+	
+	mask = 0;
+#ifndef TRIGGER
+	if(!port_a.full_speed && (port_a.state == PORT_STATE_RESET_WAIT))
+		mask |= 0x01;
+#endif
+	if(!port_b.full_speed && (port_b.state == PORT_STATE_RESET_WAIT))
+		mask |= 0x02;
+	if(mask != 0) {
+		wio8(SIE_TX_LOW_SPEED, 1);
+		wio8(SIE_SEL_TX, mask);
+		wio8(SIE_GENERATE_EOP, 1);
+		while(rio8(SIE_TX_BUSY));
+	}
+}
+
+static void set_rx_speed()
+{
+	unsigned char mask;
+	
+	mask = 0;
+	if(!port_a.full_speed) mask |= 0x01;
+	if(!port_b.full_speed) mask |= 0x02;
+	wio8(SIE_LOW_SPEED, mask);
+}
+
+int main()
+{
 	unsigned char i;
 
 	print_string(banner);
-
-	/* we only support low speed operation */
-	wio8(SIE_TX_LOW_SPEED, 1);
-	wio8(SIE_LOW_SPEED, 3);
 
 	wio8(TIMER0, 0);
 	while(1) {
@@ -568,15 +734,8 @@ int main()
 		while((rio8(TIMER1) < 0xbb) || (rio8(TIMER0) < 0x70));
 		wio8(TIMER0, 0);
 
-		/* send keepalive */
-		mask = 0;
-		if(port_a.state == PORT_STATE_WARMUP)
-			mask |= 0x01;
-		if(port_b.state == PORT_STATE_WARMUP)
-			mask |= 0x02;
-		wio8(SIE_SEL_TX, mask);
-		wio8(SIE_GENERATE_EOP, 1);
-		while(rio8(SIE_TX_BUSY));
+		sof();
+		keepalive();
 
 		/*
 		 * wait extra time to allow the USB cable
@@ -585,16 +744,19 @@ int main()
 		 */
 		for(i=0;i<128;i++)
 			asm("nop");
-
+		
+#ifndef TRIGGER
 		wio8(SIE_SEL_RX, 0);
 		wio8(SIE_SEL_TX, 0x01);
 		port_service(&port_a, 'A');
-
-		while(rio8(SIE_TX_BUSY));
+#endif
 
 		wio8(SIE_SEL_RX, 1);
 		wio8(SIE_SEL_TX, 0x02);
 		port_service(&port_b, 'B');
+		
+		/* set RX speed for new detected devices */
+		set_rx_speed();
 
 		frame_nr = (frame_nr + 1) & 0x7ff;
 	}

@@ -1,5 +1,5 @@
 /*
- * Milkymist VJ SoC
+ * Milkymist SoC
  * Copyright (C) 2007, 2008, 2009, 2010 Sebastien Bourdeauducq
  *
  * This program is free software: you can redistribute it and/or modify
@@ -17,7 +17,7 @@
 
 module softusb #(
 	parameter csr_addr = 4'h0,
-	parameter pmem_width = 11,
+	parameter pmem_width = 12,
 	parameter dmem_width = 13,
 	parameter initprog = ""
 ) (

@@ -1,6 +1,6 @@
 /*
- * Milkymist VJ SoC (Software)
- * Copyright (C) 2007, 2008, 2009, 2010 Sebastien Bourdeauducq
+ * Milkymist SoC (Software)
+ * Copyright (C) 2007, 2008, 2009, 2010, 2011 Sebastien Bourdeauducq
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -17,9 +17,8 @@
 
 #include <board.h>
 
-#include <hal/brd.h>
-
 #include <hw/fmlmeter.h>
+#include <hw/sysctl.h>
 
 static unsigned int last_stb_count;
 static unsigned int last_ack_count;
@@ -28,20 +27,20 @@ void memstats_init()
 {
 	last_stb_count = 0;
 	last_ack_count = 0;
-	CSR_FMLMETER_ENABLE = FMLMETER_ENABLE;
+	CSR_FMLMETER_COUNTERS_ENABLE = FMLMETER_COUNTERS_ENABLE;
 }
 
 void memstats_tick()
 {
-	CSR_FMLMETER_ENABLE = 0;
+	CSR_FMLMETER_COUNTERS_ENABLE = 0;
 	last_stb_count = CSR_FMLMETER_STBCOUNT;
 	last_ack_count = CSR_FMLMETER_ACKCOUNT;
-	CSR_FMLMETER_ENABLE = FMLMETER_ENABLE;
+	CSR_FMLMETER_COUNTERS_ENABLE = FMLMETER_COUNTERS_ENABLE;
 }
 
 unsigned int memstat_occupancy()
 {
-	return last_stb_count/(brd_desc->clk_frequency/100);
+	return last_stb_count/(CSR_FREQUENCY/100);
 }
 
 unsigned int memstat_net_bandwidth()
@@ -58,4 +57,20 @@ unsigned int memstat_amat()
 		return 0;
 	else
 		return (last_stb_count-last_ack_count)/d;
+}
+
+void memstat_capture_start()
+{
+	CSR_FMLMETER_CAPTURE_WADR = 0;
+}
+
+int memstat_capture_ready()
+{
+	return CSR_FMLMETER_CAPTURE_WADR > 4095;
+}
+
+unsigned int memstat_capture_get(int index)
+{
+	CSR_FMLMETER_CAPTURE_RADR = index;
+	return CSR_FMLMETER_CAPTURE_DATA;
 }

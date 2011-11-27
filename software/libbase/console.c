@@ -1,5 +1,5 @@
 /*
- * Milkymist VJ SoC (Software)
+ * Milkymist SoC (Software)
  * Copyright (C) 2007, 2008, 2009 Sebastien Bourdeauducq
  *
  * This program is free software: you can redistribute it and/or modify
@@ -65,7 +65,7 @@ int puts(const char *s)
 	unsigned int oldmask;
 
 	oldmask = irq_getmask();
-	irq_setmask(IRQ_UARTRX); // HACK: prevent UART data loss
+	irq_setmask(IRQ_UART); // HACK: prevent UART data loss
 
 	while(*s) {
 		writechar(*s);
@@ -82,7 +82,7 @@ void putsnonl(const char *s)
 	unsigned int oldmask;
 
 	oldmask = irq_getmask();
-	irq_setmask(IRQ_UARTRX); // HACK: prevent UART data loss
+	irq_setmask(IRQ_UART); // HACK: prevent UART data loss
 	
 	while(*s) {
 		writechar(*s);

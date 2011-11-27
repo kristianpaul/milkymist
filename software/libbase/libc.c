@@ -1,6 +1,6 @@
 /*
- * Milkymist VJ SoC (Software)
- * Copyright (C) 2007, 2008, 2009, 2010 Sebastien Bourdeauducq
+ * Milkymist SoC (Software)
+ * Copyright (C) 2007, 2008, 2009, 2010, 2011 Sebastien Bourdeauducq
  * Copyright (C) Linus Torvalds and Linux kernel developers
  *
  * This program is free software: you can redistribute it and/or modify
@@ -568,4 +568,10 @@ unsigned int rand()
 {
 	seed = 129 * seed + 907633385;
 	return seed;
+}
+
+void abort()
+{
+	printf("Aborted.");
+	while(1);
 }

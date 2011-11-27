@@ -1,5 +1,5 @@
 /*
- * Milkymist VJ SoC (Software)
+ * Milkymist SoC (Software)
  * Copyright (C) 2007, 2008, 2009, 2010, 2011 Sebastien Bourdeauducq
  *
  * This program is free software: you can redistribute it and/or modify
@@ -708,7 +708,7 @@ static int test_user_abort()
 
 	puts("I: Press Q or ESC to abort boot");
 	CSR_TIMER0_COUNTER = 0;
-	CSR_TIMER0_COMPARE = 2*brd_desc->clk_frequency;
+	CSR_TIMER0_COMPARE = 2*CSR_FREQUENCY;
 	CSR_TIMER0_CONTROL = TIMER_ENABLE;
 	while(CSR_TIMER0_CONTROL & TIMER_ENABLE) {
 		if(readchar_nonblock()) {
@@ -828,7 +828,7 @@ static void readstr(char *s, int size)
 static void ethreset_delay()
 {
 	CSR_TIMER0_COUNTER = 0;
-	CSR_TIMER0_COMPARE = brd_desc->clk_frequency >> 2;
+	CSR_TIMER0_COMPARE = CSR_FREQUENCY >> 2;
 	CSR_TIMER0_CONTROL = TIMER_ENABLE;
 	while(CSR_TIMER0_CONTROL & TIMER_ENABLE);
 }
@@ -844,6 +844,12 @@ static void ethreset()
 int main(int i, char **c)
 {
 	char buffer[64];
+
+	/* lock gdbstub ROM */
+	CSR_DBG_CTRL = DBG_CTRL_GDB_ROM_LOCK;
+
+	/* enable bus errors */
+	CSR_DBG_CTRL = DBG_CTRL_BUS_ERR_EN;
 
 	CSR_GPIO_OUT = GPIO_LED1;
 	rescue = !((unsigned int)main > FLASH_OFFSET_REGULAR_BIOS);

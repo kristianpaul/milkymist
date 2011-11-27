@@ -1,5 +1,5 @@
 /*
- * Milkymist VJ SoC
+ * Milkymist SoC
  * Copyright (C) 2007, 2008, 2009, 2010 Sebastien Bourdeauducq
  * Copyright (C) 2010 Michael Walle
  *
@@ -19,6 +19,8 @@
 module monitor(
 	input sys_clk,
 	input sys_rst,
+
+	input write_lock,
 
 	input [31:0] wb_adr_i,
 	output reg [31:0] wb_dat_o,
@@ -42,11 +44,11 @@ initial $readmemh("monitor.rom", mem);
 
 /* write protect */
 `ifdef CFG_GDBSTUB_ENABLED
-assign ram_we = (wb_adr_i[12] == 1'b1);
+assign ram_we = (wb_adr_i[12] == 1'b1) | ~write_lock;
 wire [10:0] adr;
 assign adr = wb_adr_i[12:2];
 `else
-assign ram_we = (wb_adr_i[10:9] == 2'b11);
+assign ram_we = (wb_adr_i[10:9] == 2'b11) | ~write_lock;
 wire [9:0] adr;
 assign adr = wb_adr_i[10:2];
 `endif

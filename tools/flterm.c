@@ -1,5 +1,5 @@
 /*
- * Milkymist VJ SoC
+ * Milkymist SoC
  * Copyright (C) 2007, 2008, 2009, 2010, 2011 Sebastien Bourdeauducq
  * Copyright (C) 2011 Michael Walle
  * Copyright (C) 2004 MontaVista Software, Inc
@@ -24,6 +24,7 @@
 #include <sys/ioctl.h>
 #include <sys/time.h>
 #include <string.h>
+#include <ctype.h>
 #include <termios.h>
 #include <fcntl.h>
 #include <unistd.h>
@@ -329,13 +330,13 @@ static void gdb_process_packet(int infd, int outfd, int altfd)
 		fds.revents = 0;
 		if(poll(&fds, 1, 100) == 0) {
 			/* timeout */
-			if (altfd != -1) {
+			if(altfd != -1) {
 				write(altfd, gdbbuf, pos);
 			}
 			break;
 		}
-		if (pos == GDBBUFLEN) {
-			if (altfd != -1) {
+		if(pos == GDBBUFLEN) {
+			if(altfd != -1) {
 				write(altfd, gdbbuf, pos);
 			}
 			break;
@@ -344,26 +345,26 @@ static void gdb_process_packet(int infd, int outfd, int altfd)
 		gdbbuf[pos++] = c;
 		if(c == '#') {
 			seen_hash = 1;
-		} else if (seen_hash == 0) {
+		} else if(seen_hash == 0) {
 			runcksum += c;
-		} else if (seen_hash == 1) {
+		} else if(seen_hash == 1) {
 			recvcksum = hex(c) << 4;
 			seen_hash = 2;
-		} else if (seen_hash == 2) {
+		} else if(seen_hash == 2) {
 			recvcksum |= hex(c);
 			seen_hash = 3;
 		}
 
-		if (seen_hash == 3) {
+		if(seen_hash == 3) {
 			/* we're done */
 			runcksum %= 256;
-			if (recvcksum == runcksum) {
-				if (debug) {
+			if(recvcksum == runcksum) {
+				if(debug) {
 					fprintf(stderr, "[GDB %s]\n", gdbbuf);
 				}
 				write(outfd, gdbbuf, pos);
 			} else {
-				if (altfd != -1) {
+				if(altfd != -1) {
 					write(altfd, gdbbuf, pos);
 				}
 			}
@@ -377,10 +378,12 @@ static void do_terminal(char *serial_port,
 	int doublerate, int gdb_passthrough,
 	const char *kernel_image, unsigned int kernel_address,
 	const char *cmdline, unsigned int cmdline_address,
-	const char *initrd_image, unsigned int initrd_address)
+	const char *initrd_image, unsigned int initrd_address,
+	char *log_path)
 {
 	int serialfd;
 	int gdbfd = -1;
+	FILE *logfd = NULL;
 	struct termios my_termios;
 	char c;
 	int recognized;
@@ -389,6 +392,14 @@ static void do_terminal(char *serial_port,
 	int rsp_pending = 0;
 	
 	/* Open and configure the serial port */
+	if(log_path != NULL) {
+		logfd = fopen(log_path, "a+");
+		if(logfd == NULL) {
+			perror("Unable to open log file");
+			return;
+		}
+	}
+
 	serialfd = open(serial_port, O_RDWR|O_NOCTTY);
 	if(serialfd == -1) {
 		perror("Unable to open serial port");
@@ -421,7 +432,7 @@ static void do_terminal(char *serial_port,
 	recognized = 0;
 	flags = fcntl(serialfd, F_GETFL, 0);
 	while(1) {
-		if (gdbfd == -1 && gdb_passthrough) {
+		if(gdbfd == -1 && gdb_passthrough) {
 			gdbfd = open("/dev/ptmx", O_RDWR);
 			if(grantpt(gdbfd) != 0) {
 				perror("grantpt()");
@@ -449,22 +460,22 @@ static void do_terminal(char *serial_port,
 		fcntl(serialfd, F_SETFL, flags);
 
 		if(fds[0].revents & POLLIN) {
-			if (read(0, &c, 1) <= 0) break;
+			if(read(0, &c, 1) <= 0) break;
 			if(write(serialfd, &c, 1) <= 0) break;
 		}
 
 		if(fds[2].revents & POLLIN) {
 			rsp_pending = 1;
-			if (read(gdbfd, &c, 1) <= 0) break;
-			if (c == '\03') {
+			if(read(gdbfd, &c, 1) <= 0) break;
+			if(c == '\03') {
 				/* convert ETX to breaks */
-				if (debug) {
+				if(debug) {
 					fprintf(stderr, "[GDB BREAK]\n");
 				}
 				tcsendbreak(serialfd, 0);
-			} else if (c == '$') {
+			} else if(c == '$') {
 				gdb_process_packet(gdbfd, serialfd, -1);
-			} else if (c == '+' || c == '-') {
+			} else if(c == '+' || c == '-') {
 				write(serialfd, &c, 1);
 			} else {
 				fprintf(stderr, "Internal error (line %d)", __LINE__);
@@ -481,36 +492,44 @@ static void do_terminal(char *serial_port,
 
 		if(fds[1].revents & POLLIN) {
 			if(read(serialfd, &c, 1) <= 0) break;
+
+			if(logfd && c && isascii(c)) {
+				fwrite(&c, sizeof(c), 1, logfd);
+				if(c == '\n') fflush(logfd);
+			}
+
 			if(gdbfd != -1 && rsp_pending && (c == '+' || c == '-')) {
 				rsp_pending = 0;
 				write(gdbfd, &c, 1);
-			} else if (gdbfd != -1 && c == '$') {
+			} else if(gdbfd != -1 && c == '$') {
 				gdb_process_packet(serialfd, gdbfd, 0);
 			} else {
 				/* write to terminal */
 				write(0, &c, 1);
 			
-				if(c == sfl_magic_req[recognized]) {
-					recognized++;
-					if(recognized == SFL_MAGIC_LEN) {
-						/* We've got the magic string ! */
-						recognized = 0;
-						answer_magic(serialfd,
-							kernel_image, kernel_address,
-							cmdline, cmdline_address,
-							initrd_image, initrd_address);
+				if(kernel_image != NULL) {
+					if(c == sfl_magic_req[recognized]) {
+						recognized++;
+						if(recognized == SFL_MAGIC_LEN) {
+							/* We've got the magic string ! */
+							recognized = 0;
+							answer_magic(serialfd,
+								kernel_image, kernel_address,
+								cmdline, cmdline_address,
+								initrd_image, initrd_address);
+						}
+					} else {
+						if(c == sfl_magic_req[0]) recognized = 1; else recognized = 0;
 					}
-				} else {
-					if(c == sfl_magic_req[0]) recognized = 1; else recognized = 0;
 				}
 			}
 		}
 	}
 	
 	close(serialfd);
-	if(gdbfd != -1) {
-		close(gdbfd);
-	}
+
+	if(gdbfd != -1) close(gdbfd);
+	if(logfd) fclose(logfd);
 }
 
 enum {
@@ -523,7 +542,8 @@ enum {
 	OPTION_CMDLINE,
 	OPTION_CMDLINEADR,
 	OPTION_INITRD,
-	OPTION_INITRDADR
+	OPTION_INITRDADR,
+	OPTION_LOG
 };
 
 static const struct option options[] = {
@@ -578,13 +598,18 @@ static const struct option options[] = {
 		.val = OPTION_INITRDADR
 	},
 	{
+		.name = "log",
+		.has_arg = 1,
+		.val = OPTION_LOG
+	},
+	{
 		.name = NULL
 	}
 };
 
 static void print_usage()
 {
-	fprintf(stderr, "Serial boot program for Milkymist SoC - v. 2.0\n");
+	fprintf(stderr, "Serial boot program for Milkymist SoC - v. 2.2\n");
 	fprintf(stderr, "Copyright (C) 2007, 2008, 2009, 2010, 2011 Sebastien Bourdeauducq\n");
 	fprintf(stderr, "Copyright (C) 2011 Michael Walle\n");
 	fprintf(stderr, "Copyright (C) 2004 MontaVista Software, Inc\n\n");
@@ -595,10 +620,11 @@ static void print_usage()
 
 	fprintf(stderr, "Usage: flterm --port <port>\n");
 	fprintf(stderr, "              [--double-rate] [--gdb-passthrough] [--debug]\n");
-	fprintf(stderr, "              --kernel <kernel_image> [--kernel-adr <address>]\n");
+	fprintf(stderr, "              [--kernel <kernel_image> [--kernel-adr <address>]]\n");
 	fprintf(stderr, "              [--cmdline <cmdline> [--cmdline-adr <address>]]\n");
-	fprintf(stderr, "              [--initrd <initrd_image> [--initrd-adr <address>]]\n\n");
-	printf("Default load addresses:\n");
+	fprintf(stderr, "              [--initrd <initrd_image> [--initrd-adr <address>]]\n");
+	fprintf(stderr, "              [--log <log_file>]\n\n");
+	fprintf(stderr, "Default load addresses:\n");
 	fprintf(stderr, "  kernel:  0x%08x\n", DEFAULT_KERNELADR);
 	fprintf(stderr, "  cmdline: 0x%08x\n", DEFAULT_CMDLINEADR);
 	fprintf(stderr, "  initrd:  0x%08x\n", DEFAULT_INITRDADR);
@@ -617,6 +643,7 @@ int main(int argc, char *argv[])
 	char *initrd_image;
 	unsigned int initrd_address;
 	char *endptr;
+	char *log_path;
 	struct termios otty, ntty;
 	
 	/* Fetch command line arguments */
@@ -629,6 +656,7 @@ int main(int argc, char *argv[])
 	cmdline_address = DEFAULT_CMDLINEADR;
 	initrd_image = NULL;
 	initrd_address = DEFAULT_INITRDADR;
+	log_path = NULL;
 	while((opt = getopt_long(argc, argv, "", options, NULL)) != -1) {
 		if(opt == '?') {
 			print_usage();
@@ -672,10 +700,14 @@ int main(int argc, char *argv[])
 				initrd_address = strtoul(optarg, &endptr, 0);
 				if(*endptr != 0) initrd_address = 0;
 				break;
+			case OPTION_LOG:
+				free(log_path);
+				log_path = strdup(optarg);
+				break;
 		}
 	}
 
-	if((serial_port == NULL) || (kernel_image == NULL)) {
+	if(serial_port == NULL) {
 		print_usage();
 		return 1;
 	}
@@ -693,7 +725,8 @@ int main(int argc, char *argv[])
 	do_terminal(serial_port, doublerate, gdb_passthrough,
 		kernel_image, kernel_address,
 		cmdline, cmdline_address,
-		initrd_image, initrd_address);
+		initrd_image, initrd_address,
+		log_path);
 	
 	/* Restore stdin/out into their previous state */
 	tcsetattr(0, TCSANOW, &otty);

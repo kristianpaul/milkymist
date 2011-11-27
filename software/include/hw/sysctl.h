@@ -1,5 +1,5 @@
 /*
- * Milkymist VJ SoC (Software)
+ * Milkymist SoC (Software)
  * Copyright (C) 2007, 2008, 2009, 2010 Sebastien Bourdeauducq
  *
  * This program is free software: you can redistribute it and/or modify
@@ -35,15 +35,21 @@
 #define TIMER_ENABLE		(0x01)
 #define TIMER_AUTORESTART	(0x02)
 
-#define CSR_DBG_SCRATCHPAD	MMPTR(0xe0001030)
-#define CSR_ICAP		MMPTR(0xe0001034)
+#define CSR_ICAP		MMPTR(0xe0001040)
 
 #define ICAP_READY		(0x01)
 
 #define ICAP_CE			(0x10000)
 #define ICAP_WRITE		(0x20000)
 
-#define CSR_CAPABILITIES	MMPTR(0xe0001038)
-#define CSR_SYSTEM_ID		MMPTR(0xe000103c)
+#define CSR_DBG_SCRATCHPAD	MMPTR(0xe0001050)
+#define CSR_DBG_CTRL		MMPTR(0xe0001054)
+
+#define DBG_CTRL_GDB_ROM_LOCK	(0x01)
+#define DBG_CTRL_BUS_ERR_EN	(0x02)
+
+#define CSR_FREQUENCY		MMPTR(0xe0001074)
+#define CSR_CAPABILITIES	MMPTR(0xe0001078)
+#define CSR_SYSTEM_ID		MMPTR(0xe000107c)
 
 #endif /* __HW_SYSCTL_H */

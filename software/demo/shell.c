@@ -1,6 +1,6 @@
 /*
- * Milkymist VJ SoC (Software)
- * Copyright (C) 2007, 2008, 2009, 2010 Sebastien Bourdeauducq
+ * Milkymist SoC (Software)
+ * Copyright (C) 2007, 2008, 2009, 2010, 2011 Sebastien Bourdeauducq
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -311,9 +311,27 @@ static void stats()
 	}
 }
 
+static void memcapture()
+{
+	int i, j;
+	char buffer[16];
+	
+	if(memstat_capture_ready()) {
+		for(i=0;i<4096;i++) {
+			/* send to UART only */
+			sprintf(buffer, "%08x\n", memstat_capture_get(i));
+			j = 0;
+			while(buffer[j])
+				uart_write(buffer[j++]);
+		}
+		memstat_capture_start();
+	} else
+		puts("Still capturing");
+}
+
 static void help()
 {
-	puts("Milkymist(tm) demonstration program (PROOF OF CONCEPT ONLY!)\n");
+	puts("Milkymist(tm) SoC demonstration program\n");
 	puts("Available commands:");
 	puts("cons        - switch console mode");
 	puts("ls          - list files on the memory card");
@@ -326,6 +344,7 @@ static void help()
 	puts("renderi     - render console input");
 	puts("stop        - stop renderer");
 	puts("stats       - print system stats");
+	puts("memcapture  - capture memory transactions");
 	puts("version     - display version");
 	puts("reboot      - system reset");
 	puts("reconf      - reload FPGA configuration");
@@ -532,7 +551,8 @@ static void tmubench()
 	struct tmu_td td;
 	volatile int complete;
 	unsigned int t;
-	int hits, reqs;
+	char buffer[64];
+	int j;
 
 	uart_force_sync(1);
 
@@ -578,9 +598,11 @@ static void tmubench()
 		tmu_submit_task(&td);
 		while(!complete);
 		t = CSR_TIMER1_COUNTER;
-		hits = CSR_TMU_HIT_A + CSR_TMU_HIT_B + CSR_TMU_HIT_C + CSR_TMU_HIT_D;
-		reqs = CSR_TMU_REQ_A + CSR_TMU_REQ_B + CSR_TMU_REQ_C + CSR_TMU_REQ_D;
-		printf("%d,%d,%d\n", t, hits, reqs);
+		/* send to UART only */
+		sprintf(buffer, "%d\n", t);
+		j = 0;
+		while(buffer[j])
+			uart_write(buffer[j++]);
 		vga_swap_buffers();
 	}
 
@@ -758,16 +780,16 @@ static void irtest()
 static void midiprint()
 {
 	unsigned int r;
-	if(irq_pending() & IRQ_MIDIRX) {
+	if(CSR_MIDI_STAT & MIDI_STAT_RX_EVT) {
 		r = CSR_MIDI_RXTX;
-		irq_ack(IRQ_MIDIRX);
+		CSR_MIDI_STAT = MIDI_STAT_RX_EVT;
 		printf("RX: %02x\n", r);
 	}
 }
 
 static void midirx()
 {
-	irq_ack(IRQ_MIDIRX);
+	CSR_MIDI_STAT = MIDI_STAT_RX_EVT;
 	while(!readchar_nonblock()) midiprint();
 }
 
@@ -775,9 +797,9 @@ static void midisend(int c)
 {
 	printf("TX: %02x\n", c);
 	CSR_MIDI_RXTX = c;
-	while(!(irq_pending() & IRQ_MIDITX));
+	while(!(CSR_MIDI_STAT & MIDI_STAT_TX_EVT));
 	printf("TX done\n");
-	irq_ack(IRQ_MIDITX);
+	CSR_MIDI_STAT = MIDI_STAT_TX_EVT;
 	midiprint();
 }
 
@@ -978,6 +1000,7 @@ static void do_command(char *c)
 		} else if(strcmp(command, "stop") == 0) renderer_stop();
 		else if(strcmp(command, "vmode") == 0) vmode(param1);
 		else if(strcmp(command, "stats") == 0) stats();
+		else if(strcmp(command, "memcapture") == 0) memcapture();
 		else if(strcmp(command, "version") == 0) puts(VERSION);
 		else if(strcmp(command, "reboot") == 0) reboot();
 		else if(strcmp(command, "reconf") == 0) reconf();

@@ -1,6 +1,6 @@
 /*
- * Milkymist VJ SoC (Software)
- * Copyright (C) 2007, 2008, 2009, 2010 Sebastien Bourdeauducq
+ * Milkymist SoC (Software)
+ * Copyright (C) 2007, 2008, 2009, 2010, 2011 Sebastien Bourdeauducq
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -20,7 +20,7 @@
 #include <fpvm/is.h>
 #include <fpvm/fpvm.h>
 #include <fpvm/pfpu.h>
-#include <fpvm/gfpus.h>
+#include <fpvm/schedulers.h>
 
 #include <hw/pfpu.h>
 

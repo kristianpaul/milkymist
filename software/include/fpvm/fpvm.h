@@ -1,6 +1,6 @@
 /*
- * Milkymist VJ SoC (Software)
- * Copyright (C) 2007, 2008, 2009, 2010 Sebastien Bourdeauducq
+ * Milkymist SoC (Software)
+ * Copyright (C) 2007, 2008, 2009, 2010, 2011 Sebastien Bourdeauducq
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -36,6 +36,8 @@
 
 #define FPVM_MAXERRLEN		64
 
+typedef void (*fpvm_bind_callback)(void *, const char *, int);
+
 struct fpvm_binding {
 	int isvar;
 	union {
@@ -49,8 +51,17 @@ struct fpvm_tbinding {
 	char sym[FPVM_MAXSYMLEN];
 };
 
+enum {
+	FPVM_BIND_NONE,
+	FPVM_BIND_SOURCE,
+	FPVM_BIND_ALL
+};
+
 struct fpvm_fragment {
 	char last_error[FPVM_MAXERRLEN];
+	fpvm_bind_callback bind_callback;
+	void *bind_callback_user;
+	
 	/* A binding is a link between the FPVM and the user,
 	 * made by permanently allocating a given register for the user.
 	 * Constants fall in this category because they need to be initialized
@@ -93,6 +104,9 @@ struct fpvm_fragment {
 const char *fpvm_version();
 
 void fpvm_init(struct fpvm_fragment *fragment, int vector_mode);
+const char *fpvm_get_last_error(struct fpvm_fragment *fragment);
+void fpvm_set_bind_mode(struct fpvm_fragment *fragment, int bind_mode);
+void fpvm_set_bind_callback(struct fpvm_fragment *fragment, fpvm_bind_callback callback, void *user);
 
 int fpvm_bind(struct fpvm_fragment *fragment, const char *sym);
 void fpvm_set_xin(struct fpvm_fragment *fragment, const char *sym);

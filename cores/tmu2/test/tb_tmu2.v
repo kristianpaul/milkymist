@@ -1,5 +1,5 @@
 /*
- * Milkymist VJ SoC
+ * Milkymist SoC
  * Copyright (C) 2007, 2008, 2009, 2010 Sebastien Bourdeauducq
  *
  * This program is free software: you can redistribute it and/or modify
@@ -285,7 +285,7 @@ always @(posedge sys_clk) begin
 			write_burstcount = 1;
 			write_addr = fmlw_adr;
 			
-			//$display("Starting   FML burst WRITE at address %x data=%x", write_addr, fmlw_do);
+			//$display("Starting   FML burst WRITE at address %x data=%x mask=%b", write_addr, fmlw_do, fmlw_sel);
 			handle_write;
 			
 			fmlw_ack = 1'b1;
@@ -294,7 +294,7 @@ always @(posedge sys_clk) begin
 		write_addr = write_addr + 8;
 		write_burstcount = write_burstcount + 1;
 		
-		//$display("Continuing FML burst WRITE at address %x data=%x", write_addr, fmlw_do);
+		//$display("Continuing FML burst WRITE at address %x data=%x mask=%b", write_addr, fmlw_do, fmlw_sel);
 		handle_write;
 		
 		if(write_burstcount == 4)

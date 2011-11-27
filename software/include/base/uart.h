@@ -1,5 +1,5 @@
 /*
- * Milkymist VJ SoC (Software)
+ * Milkymist SoC (Software)
  * Copyright (C) 2007, 2008, 2009 Sebastien Bourdeauducq
  *
  * This program is free software: you can redistribute it and/or modify
@@ -19,8 +19,7 @@
 #define __UART_H
 
 void uart_init();
-void uart_isr_rx();
-void uart_isr_tx();
+void uart_isr();
 void uart_force_sync(int f);
 
 void uart_write(char c);

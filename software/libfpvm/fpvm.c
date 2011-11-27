@@ -1,6 +1,6 @@
 /*
- * Milkymist VJ SoC (Software)
- * Copyright (C) 2007, 2008, 2009, 2010 Sebastien Bourdeauducq
+ * Milkymist SoC (Software)
+ * Copyright (C) 2007, 2008, 2009, 2010, 2011 Sebastien Bourdeauducq
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -33,6 +33,8 @@ const char *fpvm_version()
 void fpvm_init(struct fpvm_fragment *fragment, int vector_mode)
 {
 	fragment->last_error[0] = 0;
+	fragment->bind_callback = NULL;
+	fragment->bind_callback_user = NULL;
 
 	fragment->nbindings = 3;
 	fragment->bindings[0].isvar = 1;
@@ -66,19 +68,40 @@ void fpvm_init(struct fpvm_fragment *fragment, int vector_mode)
 	fragment->next_sur = -3;
 	fragment->ninstructions = 0;
 
-	fragment->bind_mode = 0;
+	fragment->bind_mode = FPVM_BIND_NONE;
 	fragment->vector_mode = vector_mode;
+}
+
+const char *fpvm_get_last_error(struct fpvm_fragment *fragment)
+{
+	return fragment->last_error;
+}
+
+void fpvm_set_bind_callback(struct fpvm_fragment *fragment, fpvm_bind_callback callback, void *user)
+{
+	fragment->bind_callback = callback;
+	fragment->bind_callback_user = user;
+}
+
+void fpvm_set_bind_mode(struct fpvm_fragment *fragment, int bind_mode)
+{
+	fragment->bind_mode = bind_mode;
 }
 
 int fpvm_bind(struct fpvm_fragment *fragment, const char *sym)
 {
+	int r;
+	
 	if(fragment->nbindings == FPVM_MAXBINDINGS) {
 		snprintf(fragment->last_error, FPVM_MAXERRLEN, "Failed to allocate register for variable: %s", sym);
 		return FPVM_INVALID_REG;
 	}
-	fragment->bindings[fragment->nbindings].isvar = 1;
-	strcpy(fragment->bindings[fragment->nbindings].b.v, sym);
-	return fragment->nbindings++;
+	r = fragment->nbindings++;
+	fragment->bindings[r].isvar = 1;
+	strcpy(fragment->bindings[r].b.v, sym);
+	if(fragment->bind_callback != NULL)
+		fragment->bind_callback(fragment->bind_callback_user, sym, r);
+	return r;
 }
 
 void fpvm_set_xin(struct fpvm_fragment *fragment, const char *sym)
@@ -149,14 +172,14 @@ static int rename_reg(struct fpvm_fragment *fragment, const char *sym, int reg)
 	return 1;
 }
 
-static int sym_to_reg(struct fpvm_fragment *fragment, const char *sym, int *created)
+static int sym_to_reg(struct fpvm_fragment *fragment, const char *sym, int dest, int *created)
 {
 	int r;
 	if(created) *created = 0;
 	r = lookup(fragment, sym);
 	if(r == FPVM_INVALID_REG) {
 		if(created) *created = 1;
-		if(fragment->bind_mode)
+		if((fragment->bind_mode == FPVM_BIND_ALL) || ((fragment->bind_mode == FPVM_BIND_SOURCE) && !dest))
 			r = fpvm_bind(fragment, sym);
 		else
 			r = tbind(fragment, sym);
@@ -309,7 +332,7 @@ static int compile(struct fpvm_fragment *fragment, int reg, struct ast_node *nod
 	if(node->contents.branches.a == NULL) {
 		/* AST node is a variable */
 		if(fragment->bind_mode) {
-			opa = sym_to_reg(fragment, node->label, NULL);
+			opa = sym_to_reg(fragment, node->label, 0, NULL);
 			if(opa == FPVM_INVALID_REG) return FPVM_INVALID_REG;
 		} else {
 			opa = lookup(fragment, node->label);
@@ -514,7 +537,7 @@ int fpvm_assign(struct fpvm_fragment *fragment, const char *dest, const char *ex
 		fragment->next_sur--;
 		created = 1;
 	} else
-		dest_reg = sym_to_reg(fragment, dest, &created);
+		dest_reg = sym_to_reg(fragment, dest, 1, &created);
 	if(dest_reg == FPVM_INVALID_REG) {
 		snprintf(fragment->last_error, FPVM_MAXERRLEN, "Failed to allocate register for destination");
 		fpvm_parse_free(n);

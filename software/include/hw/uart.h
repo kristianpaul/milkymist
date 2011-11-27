@@ -1,5 +1,5 @@
 /*
- * Milkymist VJ SoC (Software)
+ * Milkymist SoC (Software)
  * Copyright (C) 2007, 2008, 2009, 2010 Sebastien Bourdeauducq
  *
  * This program is free software: you can redistribute it and/or modify
@@ -22,12 +22,18 @@
 
 #define CSR_UART_RXTX 		MMPTR(0xe0000000)
 #define CSR_UART_DIVISOR	MMPTR(0xe0000004)
-#define CSR_UART_THRU		MMPTR(0xe0000008)
-#define CSR_UART_BREAK		MMPTR(0xe000000c)
+#define CSR_UART_STAT		MMPTR(0xe0000008)
+#define CSR_UART_CTRL		MMPTR(0xe000000c)
+#define CSR_UART_DEBUG		MMPTR(0xe0000010)
 
-#define UART_THRU		(0x1)
+#define UART_STAT_THRE		(0x1)
+#define UART_STAT_RX_EVT	(0x2)
+#define UART_STAT_TX_EVT	(0x4)
 
-#define UART_BREAK_EN		(0x1)
-#define UART_TX_PENDING		(0x2)
+#define UART_CTRL_RX_INT	(0x1)
+#define UART_CTRL_TX_INT	(0x2)
+#define UART_CTRL_THRU		(0x4)
+
+#define UART_DEBUG_BREAK_EN	(0x1)
 
 #endif /* __HW_UART_H */

@@ -579,7 +579,7 @@ wire [63:0]		fml_brg_dr,
 wire [`SDRAM_DEPTH-1:0] fml_adr;
 wire fml_stb;
 wire fml_we;
-wire fml_ack;
+wire fml_eack;
 wire [7:0] fml_sel;
 wire [63:0] fml_dw;
 wire [63:0] fml_dr;
@@ -651,7 +651,7 @@ fmlarb #(
 	.s_adr(fml_adr),
 	.s_stb(fml_stb),
 	.s_we(fml_we),
-	.s_ack(fml_ack),
+	.s_eack(fml_eack),
 	.s_sel(fml_sel),
 	.s_di(fml_dr),
 	.s_do(fml_dw)
@@ -737,8 +737,7 @@ fmlbrg #(
 //---------------------------------------------------------------------------
 // Interrupts
 //---------------------------------------------------------------------------
-wire uartrx_irq;
-wire uarttx_irq;
+wire uart_irq;
 wire gpio_irq;
 wire timer0_irq;
 wire timer1_irq;
@@ -751,19 +750,16 @@ wire tmu_irq;
 wire ethernetrx_irq;
 wire ethernettx_irq;
 wire videoin_irq;
-wire midirx_irq;
-wire miditx_irq;
+wire midi_irq;
 wire ir_irq;
 wire usb_irq;
 wire namuru_irq;
 
 wire [31:0] cpu_interrupt;
-assign cpu_interrupt = {13'd0,
+assign cpu_interrupt = {16'd0,
 	namuru_irq,
-	usb_irq,
 	ir_irq,
-	miditx_irq,
-	midirx_irq,
+	midi_irq,
 	videoin_irq,
 	ethernettx_irq,
 	ethernetrx_irq,
@@ -776,13 +772,32 @@ assign cpu_interrupt = {13'd0,
 	timer1_irq,
 	timer0_irq,
 	gpio_irq,
-	uarttx_irq,
-	uartrx_irq
+	uart_irq
 };
 
 //---------------------------------------------------------------------------
 // LM32 CPU
 //---------------------------------------------------------------------------
+wire bus_errors_en;
+wire cpuibus_err;
+wire cpudbus_err;
+`ifdef CFG_BUS_ERRORS_ENABLED
+// Catch NULL pointers and similar errors
+// NOTE: ERR is asserted at the same time as ACK, which violates
+// Wishbone rule 3.45. But LM32 doesn't care.
+reg locked_addr_i;
+reg locked_addr_d;
+always @(posedge sys_clk) begin
+	locked_addr_i <= cpuibus_adr[31:18] == 14'd0;
+	locked_addr_d <= cpudbus_adr[31:18] == 14'd0;
+end
+assign cpuibus_err = bus_errors_en & locked_addr_i & cpuibus_ack;
+assign cpudbus_err = bus_errors_en & locked_addr_d & cpudbus_ack;
+`else
+assign cpuibus_err = 1'b0;
+assign cpudbus_err = 1'b0;
+`endif
+
 wire ext_break;
 lm32_top cpu(
 	.clk_i(sys_clk),
@@ -809,7 +824,7 @@ lm32_top cpu(
 	.I_CTI_O(cpuibus_cti),
 	.I_LOCK_O(),
 	.I_BTE_O(),
-	.I_ERR_I(1'b0),
+	.I_ERR_I(cpuibus_err),
 	.I_RTY_I(1'b0),
 `ifdef CFG_EXTERNAL_BREAK_ENABLED
 	.ext_break(ext_break),
@@ -826,7 +841,7 @@ lm32_top cpu(
 	.D_CTI_O(cpudbus_cti),
 	.D_LOCK_O(),
 	.D_BTE_O(),
-	.D_ERR_I(1'b0),
+	.D_ERR_I(cpudbus_err),
 	.D_RTY_I(1'b0)
 );
 
@@ -859,10 +874,12 @@ assign flash_ce_n = 1'b0;
 //---------------------------------------------------------------------------
 // Monitor ROM / RAM
 //---------------------------------------------------------------------------
+wire debug_write_lock;
 `ifdef CFG_ROM_DEBUG_ENABLED
 monitor(
 	.sys_clk(sys_clk),
 	.sys_rst(sys_rst),
+	.write_lock(debug_write_lock),
 
 	.wb_adr_i(monitor_adr),
 	.wb_dat_o(monitor_dat_r),
@@ -895,8 +912,7 @@ uart #(
 	.csr_di(csr_dw),
 	.csr_do(csr_dr_uart),
 
-	.rx_irq(uartrx_irq),
-	.tx_irq(uarttx_irq),
+	.irq(uart_irq),
 
 	.uart_rx(uart_rx),
 	.uart_tx(uart_tx),
@@ -918,7 +934,8 @@ sysctl #(
 	.csr_addr(5'h1),
 	.ninputs(7),
 	.noutputs(2),
-	.systemid(32'h10004D31) /* 1.0.0 final (0) on M1 */
+	.clk_freq(`CLOCK_FREQUENCY),
+	.systemid(32'h11004D31) /* 1.1.0 final (0) on M1 */
 ) sysctl (
 	.sys_clk(sys_clk),
 	.sys_rst(sys_rst),
@@ -934,6 +951,9 @@ sysctl #(
 
 	.gpio_inputs({pcb_revision, btn3, btn2, btn1}),
 	.gpio_outputs({led1}),
+
+	.debug_write_lock(debug_write_lock),
+	.bus_errors_en(bus_errors_en),
 
 	.capabilities(capabilities),
 	.hard_reset(hard_reset)
@@ -961,7 +981,7 @@ ddram #(
 	.fml_adr(fml_adr),
 	.fml_stb(fml_stb),
 	.fml_we(fml_we),
-	.fml_ack(fml_ack),
+	.fml_eack(fml_eack),
 	.fml_sel(fml_sel),
 	.fml_di(fml_dw),
 	.fml_do(fml_dr),
@@ -1320,7 +1340,8 @@ always @(posedge clk50) phy_clk <= ~phy_clk;
 //---------------------------------------------------------------------------
 `ifdef ENABLE_FMLMETER
 fmlmeter #(
-	.csr_addr(5'h9)
+	.csr_addr(4'h9),
+	.fml_depth(`SDRAM_DEPTH)
 ) fmlmeter (
 	.sys_clk(sys_clk),
 	.sys_rst(sys_rst),
@@ -1331,7 +1352,9 @@ fmlmeter #(
 	.csr_do(csr_dr_fmlmeter),
 
 	.fml_stb(fml_stb),
-	.fml_ack(fml_ack)
+	.fml_ack(fml_eack),
+	.fml_we(fml_we),
+	.fml_adr(fml_adr)
 );
 `else
 assign csr_dr_fmlmeter = 32'd0;
@@ -1400,16 +1423,14 @@ uart #(
 	.csr_di(csr_dw),
 	.csr_do(csr_dr_midi),
 
-	.rx_irq(midirx_irq),
-	.tx_irq(miditx_irq),
+	.irq(midi_irq),
 
 	.uart_rx(midi_rx),
 	.uart_tx(midi_tx)
 );
 `else
 assign csr_dr_midi = 32'd0;
-assign midirx_irq = 1'b0;
-assign miditx_irq = 1'b0;
+assign midi_irq = 1'b0;
 assign midi_tx = 1'b1;
 `endif
 
