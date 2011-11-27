@@ -91,6 +91,7 @@ const int prn_code[38] =
 
 /* MMIO */
 #define MM_READ(reg) (*((volatile unsigned int *)(reg)))
+#define MM_READS(reg) (*((volatile signed short int *)(reg)))
 #define MM_WRITE(reg, val) *((volatile unsigned int *)(reg)) = val
 
 /* General address space functions */
@@ -152,7 +153,7 @@ static void memtest1()
 			pass++;
 		}
 	printf("Errors: %u \n", errors);
-	printf("Passed: %u \n", pass);
+	printf("Cycles: %u \n", pass);
 	puts("Done \n");
 }
 
@@ -202,7 +203,7 @@ static void namurumeasure()
 	}
 	printf("Bye\n");
 }
-static void namuruaccum()
+static void namuruaccumu()
 {
 	char *c;
 	printf("Accumulators: \n");
@@ -224,12 +225,34 @@ static void namuruaccum()
 
 }
 
+static void namuruaccums()
+{
+	char *c;
+	printf("Accumulators: \n");
+	printf("I_E\tQ_E\tI_P\tQ_P\tI_L\tQ_L\n");
+	/* missing polling accum int pin */
+	while(1)
+	{
+		printf("%d\t%d\t%d\t%d\t%d\t%d\n",(MM_READS(CH0_I_EARLY)),(MM_READS(CH0_Q_EARLY)),(MM_READS(CH0_I_PROMPT)),(MM_READS(CH0_Q_PROMPT)),(MM_READS(CH0_I_LATE)),(MM_READS(CH0_Q_LATE)));
+	MM_WRITE(CLEAR_STATUS,0x0f);
+	MM_WRITE(CH0_ENABLES,0xff);
+		if(readchar_nonblock()) 
+		{
+			c = readchar();
+			if(c == 'q')
+				break;
+		}
+	}
+	printf("\n");
+
+}
+
 static void namurustatus()
 {
 	char *c;
 	printf("\n");
 	printf("Status: \n");
-	printf("TIC_COUNT\tACCUM_COUNT\tCARRIER_MEASURE\tCODE_MEASURE\tSTATUS\tNEW_DATA\n");
+	printf("TIC_COUNT\tACCUM_COUNT\tCARRIER_MEASURE\tCODE_MEASURE\t\tSTATUS\tNEW_DATA\n");
 	while(1)
 	{
 		printf("%02d\t\t%02d\t\t%02d\t\t%02d\t\t%02d\t\t%02d\n",(MM_READ(TIC_COUNT)),(MM_READ(ACCUM_COUNT)),(MM_READ(CH0_CARRIER_MEASUREMENT)),(MM_READ(CH0_CODE_MEASUREMENT)),(MM_READ(STATUS)),(MM_READ(NEW_DATA)));
@@ -244,6 +267,43 @@ static void namurustatus()
 	}
 	MM_WRITE(STATUS,0x0); //clear status_read flag
 	printf("\n");
+}
+
+static void namuruacq()
+{
+	char *c;
+	printf("Accumulators: \n");
+	printf("I_E\tQ_E\tI_P\tQ_P\tI_L\tQ_L\n");
+	/* missing polling accum int pin */
+	while(1)
+	{
+		printf("%02d\t%02d\t%02d\t%02d\t%02d\t%02d\n",(MM_READ(CH0_I_EARLY)),(MM_READ(CH0_Q_EARLY)),(MM_READ(CH0_I_PROMPT)),(MM_READ(CH0_Q_PROMPT)),(MM_READ(CH0_I_LATE)),(MM_READ(CH0_Q_LATE)));
+	MM_WRITE(CLEAR_STATUS,0x0f);
+	MM_WRITE(CH0_ENABLES,0xff);
+		if(readchar_nonblock()) 
+		{
+			c = readchar();
+			if(c == 'q')
+				break;
+		}
+	}
+	printf("\n");
+
+}
+
+static void printmath()
+{
+/*	int positive = 20;
+	int negative = -20; */
+	volatile signed short int positive = 30;
+	volatile signed short int negative = -30;
+	float floating = 0;
+	printf("Positive value as unsigned: %u \n", positive);
+	printf("Negative value as unsigned: %u \n", negative);
+	printf("Float value as unsigned: %u \n", floating);
+	printf("Positive value as signed: %d \n", positive);
+	printf("Negative value as signed: %d \n", negative);
+//	printf("Float value as float: %f \n", &floating);
 }
 
 static void mr(char *startaddr, char *len)
@@ -575,8 +635,10 @@ static void help()
 	puts("namuruinit - init basic essential registers");
 	puts("namurustatus - dump status to screen");
 	puts("namurumeasure - no dump,measure TPs with scope ");
-	puts("namuruaccum - dump accumlators to screen");
+	puts("namuruaccums - dump accumlators as signed to screen");
+	puts("namuruaccumu - dump accumlators as un-signed to screen");
 	puts("memtest1   - memory speed test, use a stopwatch!");
+	puts("printmath   - confirm some signed/unsiged visualization");
 }
 
 static char *get_token(char **str)
@@ -628,8 +690,10 @@ static void do_command(char *c)
 	else if(strcmp(token, "namuruinit") == 0) namuruinit();
 	else if(strcmp(token, "namurustatus") == 0) namurustatus();
 	else if(strcmp(token, "namurumeasure") == 0) namurumeasure();
-	else if(strcmp(token, "namuruaccum") == 0) namuruaccum();
+	else if(strcmp(token, "namuruaccums") == 0) namuruaccums();
+	else if(strcmp(token, "namuruaccumu") == 0) namuruaccumu();
 	else if(strcmp(token, "memtest1") == 0) memtest1();
+	else if(strcmp(token, "printmath") == 0) printmath();
 
 	else if(strcmp(token, "rcsr") == 0) rcsr(get_token(&c));
 	else if(strcmp(token, "wcsr") == 0) wcsr(get_token(&c), get_token(&c));
@@ -792,13 +856,13 @@ int main(int i, char **c)
 	crcbios();
 	brd_init();
 	tmu_init(); /* < for hardware-accelerated scrolling */
-	usb_init();
-	ukb_init();
+	//usb_init();
+	//ukb_init();
 
 	if(rescue)
 		printf("I: Booting in rescue mode\n");
 
-	splash_display();
+	//splash_display();
 	ethreset(); /* < that pesky ethernet PHY needs two resets at times... */
 	print_mac();
 	boot_sequence();
