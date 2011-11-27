@@ -1,0 +1,47 @@
+#!/usr/bin/perl
+#
+# mkboot - generate a bitstream (in .bit format) that boots an M1
+#          with the "regular" bitstream, using UrJTAG
+#
+# Hacked 2011 by Werner Almesberger
+#
+
+#
+# bitstream file magic, copied from xilinx_bitstream.c:xlx_bitstream_load_bit
+#
+
+print pack("C*",
+    0x00, 0x09, 0x0f, 0xf0, 0x0f, 0xf0, 0x0f, 0xf0,
+    0x0f, 0xf0, 0x00, 0x00, 0x01);
+
+#
+# The 0xffff dummy and the 0x2000 NOP seem to be unnecessary in this case,
+# so we omit them.
+#
+# To boot the rescue bitstream instead of the regular bitstream, change
+# the value of GENERAL2 from 0x0037 to 0x0005.
+#
+
+@seq = (
+#    0xffff,	# DUMMY
+    0xaa99, 	# Sync(1)
+    0x5566,	# Sync(2)
+    0x3261,	# write GENERAL1
+    0x0000,	# start address 15:0
+    0x3281,	# write GENERAL2
+    0x0037,	# start address 23:16
+    0x30a1,	# write CMD
+    0x000e);	# IPROG
+#    0x2000);	# NOP
+
+#
+# "e" section in bitstream file, with the length in bytes.
+#
+
+print pack("aN", "e", 2*@seq);
+
+#
+# the actual bitstream
+#
+
+print pack("n*", @seq);

@@ -5,7 +5,7 @@ SERIAL?=/dev/ttyUSB0
 
 all: $(TARGETS)
 clean:
-	rm -f $(TARGETS)
+	rm -f $(TARGETS) boot.bit
 
 standby.fpg:
 	$(MAKE) -C $(MMDIR)/tools
@@ -55,4 +55,14 @@ connect:
 	stty -F $(SERIAL) raw 115200
 	while : ; do cat $(SERIAL) ; done & cat > $(SERIAL)
 
-.PHONY: flash clean connect
+boot:           boot.jtag boot.bit
+	        jtag -q boot.jtag
+
+standby:        standby.jtag
+	        jtag -q standby.jtag
+
+boot.bit:       mkboot
+	        ./mkboot >$@ || { rm -rf $@; exit 1; }
+
+
+.PHONY: flash clean connect boot standby clean
