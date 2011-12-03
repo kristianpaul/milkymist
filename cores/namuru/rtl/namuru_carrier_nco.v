@@ -99,7 +99,7 @@ module carrier_nco (clk, rstn, tic_enable, f_control, carrier_val, i_sign, i_mag
 	 else if (tic_enable)
       begin
 	    carrier_val = combined_carr_value; // latch in carrier value, then...
-      cycle_count_reg = 0; // reset counter
+      cycle_count_reg <= 0; // reset counter
 	    end
 	 else if (accum_carry)
       cycle_count_reg <= cycle_count_reg + 1;
