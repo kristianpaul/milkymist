@@ -29,6 +29,18 @@
 
 //#define	TRIGGER
 
+#ifdef TRIGGER
+
+#define	TRIGGER_ON()	wio8(SIE_SEL_TX, 3)
+#define	TRIGGER_OFF()	wio8(SIE_SEL_TX, 2)
+
+#else
+
+#define	TRIGGER_ON()	((void) 0)
+#define	TRIGGER_OFF()	((void) 0)
+
+#endif /* !TRIGGER */
+
 enum {
 	USB_PID_OUT	= 0xe1,
 	USB_PID_IN	= 0x69,
@@ -41,10 +53,36 @@ enum {
 };
 
 enum {
+	USB_DT_DEVICE		= 1,
+	USB_DT_CONFIG		= 2,
+	USB_DT_INTERFACE	= 4,
+	USB_DT_ENDPOINT		= 5,
+};
+
+enum {
+	USB_CLASS_AUDIO		= 1,
+	USB_CLASS_HID		= 3,
+};
+
+enum {
+	USB_SUBCLASS_BOOT	= 1,	/* HID */
+};
+
+enum {
+	USB_SUBCLASS_MIDISTREAMING = 3,	/* AUDIO */
+};
+
+enum {
+	USB_PROTO_KEYBOARD	= 1,	/* HID */
+	USB_PROTO_MOUSE		= 2,
+};
+
+enum {
 	PORT_STATE_DISCONNECTED = 0,
 	PORT_STATE_BUS_RESET,
 	PORT_STATE_RESET_WAIT,
 	PORT_STATE_SET_ADDRESS,
+	PORT_STATE_GET_EP0_SIZE,
 	PORT_STATE_GET_DEVICE_DESCRIPTOR,
 	PORT_STATE_GET_CONFIGURATION_DESCRIPTOR,
 	PORT_STATE_SET_CONFIGURATION,
@@ -64,8 +102,10 @@ struct port_status {
 	char full_speed;
 	char retry_count;
 	unsigned int unreset_frame;
+	unsigned char ep0_size;
 	struct ep_status keyboard;
 	struct ep_status mouse;
+	struct ep_status midi;
 };
 
 static struct port_status port_a;
@@ -74,6 +114,8 @@ static struct port_status port_b;
 static unsigned int frame_nr;
 
 #define	ADDR_EP(addr, ep)	((addr) | (ep) << 7)
+#define	ADDR	1
+
 
 static void make_usb_token(unsigned char pid, unsigned int elevenbits, unsigned char *out)
 {
@@ -83,7 +125,7 @@ static void make_usb_token(unsigned char pid, unsigned int elevenbits, unsigned 
 	out[2] |= usb_crc5(out[1], out[2]) << 3;
 }
 
-static void usb_tx(const unsigned char *buf, unsigned char len)
+static void usb_tx_nowait(const unsigned char *buf, unsigned char len)
 {
 	unsigned char i;
 
@@ -94,8 +136,14 @@ static void usb_tx(const unsigned char *buf, unsigned char len)
 	}
 	while(rio8(SIE_TX_PENDING));
 	wio8(SIE_TX_VALID, 0);
+}
+
+static void usb_tx(const unsigned char *buf, unsigned char len)
+{
+	usb_tx_nowait(buf, len);
 	while(rio8(SIE_TX_BUSY));
 }
+
 
 static inline void usb_ack(void)
 {
@@ -111,16 +159,31 @@ static const char ack_error[] PROGMEM = "ACK: ";
 static const char timeout_error[] PROGMEM = "RX timeout error\n";
 static const char bitstuff_error[] PROGMEM = "RX bitstuff error\n";
 
-#define	WAIT_RX(first, end)					\
+#define	WAIT_ACTIVE()						\
 	do {							\
 		unsigned timeout = 0x200;			\
-		while(!rio8(SIE_RX_PENDING)) {			\
+		while(!rio8(SIE_RX_ACTIVE)) {			\
 			if(!--timeout)				\
 				goto timeout;			\
 			if(rio8(SIE_RX_ERROR))			\
 				goto error;			\
-			if(!first && !rio8(SIE_RX_ACTIVE))	\
+		}						\
+	} while (0)
+
+#define	WAIT_RX(end)						\
+	do {							\
+		unsigned timeout = 0x200;			\
+		unsigned char status;				\
+		while(1) {					\
+			status = rio8(SIE_RX_STATUS); 		\
+			if(status & RX_PENDING)			\
+				break;				\
+			if(!(status & RX_ACTIVE))		\
 				goto end;			\
+			if(!--timeout)				\
+				goto timeout;			\
+			if(rio8(SIE_RX_ERROR))			\
+				goto error;			\
 		}						\
 	} while (0)
 
@@ -131,10 +194,10 @@ static char usb_rx_ack(void)
 	unsigned char i;
 
 	/* SYNC */
-	WAIT_RX(1, nothing);
+	WAIT_ACTIVE();
 
 	/* PID */
-	WAIT_RX(0, nothing);
+	WAIT_RX(nothing);
 	pid = rio8(SIE_RX_DATA);
 
 	/* wait for idle, or simply time out and fall foward */
@@ -148,7 +211,7 @@ static char usb_rx_ack(void)
 		return 0;
 
 	for(i = 200; i; i--)
-		WAIT_RX(0,out);
+		WAIT_RX(out);
 out:
 	print_string(ack_error);
 	print_hex(pid);
@@ -179,10 +242,10 @@ static int usb_in(unsigned addr, unsigned char expected_data,
 	usb_tx(in, 3);
 
 	/* SYNC */
-	WAIT_RX(1, nothing);
+	WAIT_ACTIVE();
 
 	/* PID */
-	WAIT_RX(0, nothing);
+	WAIT_RX(nothing);
 	buf[0] = rio8(SIE_RX_DATA);
 
 	if(buf[0] == expected_data)
@@ -195,7 +258,7 @@ static int usb_in(unsigned addr, unsigned char expected_data,
 	/* unknown packet: try to receive for debug purposes, then dump */
 
 	while(len != maxlen) {
-		WAIT_RX(0, fail);
+		WAIT_RX(fail);
 		buf[len++] = rio8(SIE_RX_DATA);
 	}
 fail:
@@ -207,7 +270,7 @@ fail:
 
 ignore:
 	for(i = 200; i; i--)
-		WAIT_RX(0, ignore_eop);
+		WAIT_RX(ignore_eop);
 	goto complain; /* this doesn't stop - just quit silently */
 ignore_eop:
 	usb_ack();
@@ -219,7 +282,7 @@ complain:
 
 receive:
 	while(1) {
-		WAIT_RX(0, eop);
+		WAIT_RX(eop);
 		if(len == maxlen)
 			goto discard;
 		buf[len++] = rio8(SIE_RX_DATA);
@@ -230,7 +293,7 @@ eop:
 
 discard:
 	for(i = 200; i; i--)
-		WAIT_RX(0, nothing);
+		WAIT_RX(nothing);
 nothing:
 	return 0;
 
@@ -251,7 +314,7 @@ static char usb_out(unsigned addr, const unsigned char *buf, unsigned char len)
 
 	/* send OUT */
 	make_usb_token(USB_PID_OUT, addr, out);
-	usb_tx(out, 3);
+	usb_tx_nowait(out, 3);
 
 	/* send DATAx */
 	usb_tx(buf, len);
@@ -276,10 +339,10 @@ static inline unsigned char toggle(unsigned char old)
 static const char setup_ack[] PROGMEM = "SETUP not ACKed\n";
 
 static int control_transfer(unsigned char addr, struct setup_packet *p,
-    char out, unsigned char *payload, int maxlen)
+    char out, unsigned char *payload, int maxlen, unsigned char ep0_size)
 {
 	unsigned char setup[11];
-	unsigned char usb_buffer[11];
+	unsigned char usb_buffer[64+2+1]; /* DATA + max EP0 size + CRC */
 	unsigned char expected_data = USB_PID_DATA1;
 	char rxlen;
 	char transferred;
@@ -291,15 +354,15 @@ static int control_transfer(unsigned char addr, struct setup_packet *p,
 	usb_buffer[0] = USB_PID_DATA0;
 	memcpy(&usb_buffer[1], p, 8);
 	usb_crc16(&usb_buffer[1], 8, &usb_buffer[9]);
-#ifdef TRIGGER
-wio8(SIE_SEL_TX, 3);
-#endif
+
+	TRIGGER_ON();
+
 	/* send them back-to-back */
-	usb_tx(setup, 3);
+	usb_tx_nowait(setup, 3);
 	usb_tx(usb_buffer, 11);
-#ifdef TRIGGER
-wio8(SIE_SEL_TX, 2);
-#endif
+
+	TRIGGER_OFF();
+
 	/* get ACK token from device */
 	if(usb_rx_ack() != 1) {
 		print_string(setup_ack);
@@ -313,8 +376,8 @@ wio8(SIE_SEL_TX, 2);
 			chunklen = maxlen - transferred;
 			if(chunklen == 0)
 				break;
-			if(chunklen > 8)
-				chunklen = 8;
+			if(chunklen > ep0_size)
+				chunklen = ep0_size;
 
 			/* make DATAx packet */
 			usb_buffer[0] = expected_data;
@@ -329,12 +392,13 @@ wio8(SIE_SEL_TX, 2);
 			expected_data = toggle(expected_data);
 			transferred += chunklen;
 			payload += chunklen;
-			if(chunklen < 8)
+			if(chunklen < ep0_size)
 				break;
 		}
-	} else if(maxlen != 0) {
-		while(1) {
-			rxlen = usb_in(addr, expected_data, usb_buffer, 11);
+	} else
+		while(transferred != maxlen) {
+			rxlen = usb_in(addr, expected_data, usb_buffer,
+			    ep0_size+3);
 			if(!rxlen)
 				continue;
 			if(rxlen <0)
@@ -348,10 +412,9 @@ wio8(SIE_SEL_TX, 2);
 
 			transferred += chunklen;
 			payload += chunklen;
-			if(chunklen < 8)
+			if(chunklen < ep0_size)
 				break;
 		}
-	}
 
 	/* send IN/OUT token in the opposite direction to end transfer */
 retry:
@@ -376,52 +439,94 @@ retry:
 	return transferred;
 }
 
-static void poll(struct ep_status *ep, char keyboard)
+static char process_keyboard(unsigned char *buf, unsigned char len)
 {
-	unsigned char usb_buffer[11];
-	int len;
-	unsigned char m;
-	char i;
+	unsigned char m, i;
 
-	len = usb_in(ADDR_EP(1, ep->ep), ep->expected_data, usb_buffer, 11);
+	if(len < 6)
+		return 0;
+	m = COMLOC_KEVT_PRODUCE;
+	for(i = 0; i < 8; i++)
+		COMLOC_KEVT(8*m+i) = buf[i];
+	COMLOC_KEVT_PRODUCE = (m + 1) & 0x07;
+	return 1;
+}
+
+static char process_mouse(unsigned char *buf, unsigned char len)
+{
+	unsigned char m, i;
+
+	if(len < 3)
+		return 0;
+	/*
+	 * HACK: The Rii RF mini-keyboard sends ten byte messages with
+	 * a report ID and 16 bit coordinates. We're too lazy to parse
+	 * report descriptors, so we just hard-code that report layout.
+	 */
+	if(len == 7) {
+		buf[0] = buf[1];	/* buttons */
+		buf[1] = buf[2];	/* X LSB */
+		buf[2] = buf[4];	/* Y LSB */
+	}
+	if(len > 4)
+		len = 4;
+	m = COMLOC_MEVT_PRODUCE;
+	for(i = 0; i < len; i++)
+		COMLOC_MEVT(4*m+i) = buf[i];
+	while(i < 4) {
+		COMLOC_MEVT(4*m+i) = 0;
+		i++;
+	}
+	COMLOC_MEVT_PRODUCE = (m + 1) & 0x0f;
+	return 1;
+}
+
+static char process_midi(unsigned char *buf, unsigned char len)
+{
+	unsigned char end = len & ~3;
+	unsigned char i, m, j;
+	char sent_something = 0;
+
+	/*
+	 * In theory, control changes should be heralded by a CIN of 0xB,
+	 * i.e., (buf[0] & 0x0f) == 0x0b.
+	 * Faderfox and Korg do indeed work like this, but iCON choose to
+	 * differ. Instead, they send everything with a CIN of 0x9, meaning
+	 * "Note-on". To err on the compatible side, we thus simply ignore
+	 * the CIN and only look at the first byte of the MIDI message.
+	 */
+	
+	for(i = 0; i != end; i += 4) {
+		unsigned char type = buf[i+1] & 0xf0;
+
+		/* ignore non-MIDI and all system messages */
+		if(type < 0x80 || type == 0xf0)
+			continue;
+		m = COMLOC_MIDI_PRODUCE;
+		for(j = 0; j != 4; j++)
+			COMLOC_MIDI(4*m+j) = buf[i+j];
+		COMLOC_MIDI_PRODUCE = (m + 1) & 15;
+		sent_something = 1;
+	}
+	return sent_something;
+}
+
+static void poll(struct ep_status *ep,
+    char (*process)(unsigned char *buf, unsigned char len))
+{
+	unsigned char usb_buffer[1+64+2]; /* DATAx + payload + CRC */
+	int len;
+
+	len = usb_in(ADDR_EP(ADDR, ep->ep), ep->expected_data, usb_buffer,
+	    sizeof(usb_buffer));
 	if(len <= 0)
 		return;
 	ep->expected_data = toggle(ep->expected_data);
 
-	/* send to host */
-	if(keyboard) {
-		if(len < 9)
-			return;
-		m = COMLOC_KEVT_PRODUCE;
-		for(i=0;i<8;i++)
-			COMLOC_KEVT(8*m+i) = usb_buffer[i+1];
-		COMLOC_KEVT_PRODUCE = (m + 1) & 0x07;
-	} else {
-		if(len < 6)
-			return;
-		/*
-		 * HACK: The Rii RF mini-keyboard sends ten byte messages with
-		 * a report ID and 16 bit coordinates. We're too lazy to parse
-		 * report descriptors, so we just hard-code that report layout.
-		 */
-		if(len == 10) {
-			usb_buffer[1] = usb_buffer[2];	/* buttons */
-			usb_buffer[2] = usb_buffer[3];	/* X LSB */
-			usb_buffer[3] = usb_buffer[5];	/* Y LSB */
-		}
-		if(len > 7)
-			len = 7;
-		m = COMLOC_MEVT_PRODUCE;
-		for(i=0;i<len-3;i++)
-			COMLOC_MEVT(4*m+i) = usb_buffer[i+1];
-		while(i < 4) {
-			COMLOC_MEVT(4*m+i) = 0;
-			i++;
-		}
-		COMLOC_MEVT_PRODUCE = (m + 1) & 0x0f;
-	}
-	/* trigger host IRQ */
-	wio8(HOST_IRQ, 1);
+	if(len <= 3)
+		return;
+	if(process(usb_buffer+1, len-3))	/* send to host */
+		wio8(HOST_IRQ, 1);		/* trigger host IRQ */
 }
 
 static const char connect_fs[] PROGMEM = "Full speed device on port ";
@@ -439,11 +544,37 @@ static void check_discon(struct port_status *p, char name)
 	if(discon) {
 		print_string(disconnect); print_char(name); print_char('\n');
 		p->state = PORT_STATE_DISCONNECTED;
-		p->keyboard.ep = p->mouse.ep = 0;
+		p->keyboard.ep = p->mouse.ep = p->midi.ep = 0;
 	}
 }
 
-static char validate_configuration_descriptor(unsigned char *descriptor,
+static struct ep_status *identify_protocol(const unsigned char *itf,
+    struct port_status *p)
+{
+	/* check for bInterfaceClass=3 and bInterfaceSubClass=1 (HID) */
+	if (itf[5] == USB_CLASS_HID && itf[6] == USB_SUBCLASS_BOOT)
+		switch(itf[7]) { /* check bInterfaceProtocol */
+			case USB_PROTO_KEYBOARD:
+				return &p->keyboard;
+			case USB_PROTO_MOUSE:
+				return &p->mouse;
+			default:
+				/* unknown protocol, fail */
+				return NULL;
+		}
+	if (itf[5] == USB_CLASS_AUDIO && itf[6] == USB_SUBCLASS_MIDISTREAMING)
+		return &p->midi;
+
+	return NULL;
+}
+
+static const char found[] PROGMEM = "Found ";
+static const char unsupported_device[] PROGMEM = "unsupported device\n";
+static const char mouse[] PROGMEM = "mouse\n";
+static const char keyboard[] PROGMEM = "keyboard\n";
+static const char midi[] PROGMEM = "MIDI\n";
+
+static char validate_configuration_descriptor(const unsigned char *descriptor,
     char len, struct port_status *p)
 {
 	struct ep_status *ep = NULL;
@@ -451,25 +582,9 @@ static char validate_configuration_descriptor(unsigned char *descriptor,
 
 	offset = 0;
 	while(offset < len) {
-		if(descriptor[offset+1] == 0x04) {
-			/* got an interface descriptor */
-			/* check for bInterfaceClass=3 and bInterfaceSubClass=1 (HID) */
-			if((descriptor[offset+5] != 0x03) || (descriptor[offset+6] != 0x01))
-				break;
-			/* check bInterfaceProtocol */
-			switch(descriptor[offset+7]) {
-				case 0x01:
-					ep = &p->keyboard;
-					break;
-				case 0x02:
-					ep = &p->mouse;
-					break;
-				default:
-					/* unknown protocol, fail */
-					ep = NULL;
-					break;
-			}
-		} else if(descriptor[offset+1] == 0x05 &&
+		if(descriptor[offset+1] == USB_DT_INTERFACE) {
+			ep = identify_protocol(descriptor+offset, p);
+		} else if(descriptor[offset+1] == USB_DT_ENDPOINT &&
 		    (descriptor[offset+2] & 0x80) && ep) {
 				ep->ep = descriptor[offset+2] & 0x7f;
 				ep->expected_data = USB_PID_DATA0;
@@ -478,7 +593,26 @@ static char validate_configuration_descriptor(unsigned char *descriptor,
 		}
 		offset += descriptor[offset+0];
 	}
-	return p->keyboard.ep || p->mouse.ep;
+	if(p->keyboard.ep) {
+		print_string(found);
+		print_string(keyboard);
+	}
+	if(p->mouse.ep) {
+		print_string(found);
+		print_string(mouse);
+	}
+	if(p->midi.ep) {
+		print_string(found);
+		print_string(midi);
+	}
+	return p->keyboard.ep || p->mouse.ep || p->midi.ep;
+}
+
+static void unsupported(struct port_status *p)
+{
+	print_string(found);
+	print_string(unsupported_device);
+	p->state = PORT_STATE_UNSUPPORTED;
 }
 
 static const char retry_exceed[] PROGMEM = "Retry count exceeded, disabling device.\n";
@@ -493,10 +627,39 @@ static void check_retry(struct port_status *p)
 static const char vid[] PROGMEM = "VID: ";
 static const char pid[] PROGMEM = ", PID: ";
 
-static const char found[] PROGMEM = "Found ";
-static const char unsupported_device[] PROGMEM = "unsupported device\n";
-static const char mouse[] PROGMEM = "mouse\n";
-static const char keyboard[] PROGMEM = "keyboard\n";
+static int get_device_descriptor(unsigned char *buf, int size,
+    unsigned char ep0_size)
+{
+	struct setup_packet packet;
+
+	packet.bmRequestType = 0x80;
+	packet.bRequest = 0x06;
+	packet.wValue[0] = 0x00;
+	packet.wValue[1] = USB_DT_DEVICE;
+	packet.wIndex[0] = 0x00;
+	packet.wIndex[1] = 0x00;
+	packet.wLength[0] = size;
+	packet.wLength[1] = 0x00;
+
+	return control_transfer(ADDR, &packet, 0, buf, size, ep0_size);
+}
+
+static char get_ep0_size(struct port_status *p)
+{
+	unsigned char device_descriptor[8];
+	unsigned char size;
+
+	if(get_device_descriptor(device_descriptor, 8, 8) != 8)
+		return 0;
+
+	size = device_descriptor[7];
+	if (size != 8 && size != 16 && size != 32 && size != 64)
+		return 0;
+
+	p->ep0_size = size;
+
+	return 1;
+}
 
 static void port_service(struct port_status *p, char name)
 {
@@ -532,6 +695,7 @@ static void port_service(struct port_status *p, char name)
 				p->state = PORT_STATE_BUS_RESET;
 				p->unreset_frame = (frame_nr + 350) & 0x7ff;
 			}
+			p->ep0_size = 8;
 			break;
 		}
 		case PORT_STATE_BUS_RESET:
@@ -556,34 +720,33 @@ static void port_service(struct port_status *p, char name)
 
 			packet.bmRequestType = 0x00;
 			packet.bRequest = 0x05;
-			packet.wValue[0] = 0x01;
+			packet.wValue[0] = ADDR;
 			packet.wValue[1] = 0x00;
 			packet.wIndex[0] = 0x00;
 			packet.wIndex[1] = 0x00;
 			packet.wLength[0] = 0x00;
 			packet.wLength[1] = 0x00;
 
-			if(control_transfer(0x00, &packet, 1, NULL, 0) == 0) {
+			if(control_transfer(0x00, &packet, 1, NULL, 0,
+			    p->ep0_size) == 0) {
 				p->retry_count = 0;
-				p->state = PORT_STATE_GET_DEVICE_DESCRIPTOR;
+				p->state = PORT_STATE_GET_EP0_SIZE;
 			}
 			check_retry(p);
 			break;
 		}
+		case PORT_STATE_GET_EP0_SIZE:
+			if(get_ep0_size(p)) {
+				p->state = PORT_STATE_GET_DEVICE_DESCRIPTOR;
+				p->retry_count = 0;
+			}
+			check_retry(p);
+			break;
 		case PORT_STATE_GET_DEVICE_DESCRIPTOR: {
-			struct setup_packet packet;
 			unsigned char device_descriptor[18];
-			
-			packet.bmRequestType = 0x80;
-			packet.bRequest = 0x06;
-			packet.wValue[0] = 0x00;
-			packet.wValue[1] = 0x01;
-			packet.wIndex[0] = 0x00;
-			packet.wIndex[1] = 0x00;
-			packet.wLength[0] = 18;
-			packet.wLength[1] = 0x00;
 
-			if(control_transfer(0x01, &packet, 0, device_descriptor, 18) >= 0) {
+			if(get_device_descriptor(device_descriptor, 18,
+			    p->ep0_size) >= 0) {
 				p->retry_count = 0;
 				print_string(vid);
 				print_hex(device_descriptor[9]);
@@ -595,10 +758,9 @@ static void port_service(struct port_status *p, char name)
 				/* check for bDeviceClass=0 and bDeviceSubClass=0.
 				 * HID devices have those.
 				 */
-				if((device_descriptor[4] != 0) || (device_descriptor[5] != 0)) {
-					print_string(found); print_string(unsupported_device);
-					p->state = PORT_STATE_UNSUPPORTED;
-				} else
+				if((device_descriptor[4] != 0) || (device_descriptor[5] != 0))
+					unsupported(p);
+				else
 					p->state = PORT_STATE_GET_CONFIGURATION_DESCRIPTOR;
 			}
 			check_retry(p);
@@ -612,30 +774,21 @@ static void port_service(struct port_status *p, char name)
 			packet.bmRequestType = 0x80;
 			packet.bRequest = 0x06;
 			packet.wValue[0] = 0x00;
-			packet.wValue[1] = 0x02;
+			packet.wValue[1] = USB_DT_CONFIG;
 			packet.wIndex[0] = 0x00;
 			packet.wIndex[1] = 0x00;
 			packet.wLength[0] = 127;
 			packet.wLength[1] = 0x00;
 
-			len = control_transfer(0x01, &packet, 0, configuration_descriptor, 127);
+			len = control_transfer(ADDR, &packet, 0,
+			    configuration_descriptor, 127, p->ep0_size);
 			if(len >= 0) {
 				p->retry_count = 0;
 				if(!validate_configuration_descriptor(
-				    configuration_descriptor, len, p)) {
-					print_string(found); print_string(unsupported_device);
-					p->state = PORT_STATE_UNSUPPORTED;
-				} else {
-					if(p->keyboard.ep) {
-						print_string(found);
-						print_string(keyboard);
-					}
-					if(p->mouse.ep) {
-						print_string(found);
-						print_string(mouse);
-					}
+				    configuration_descriptor, len, p))
+					unsupported(p);
+				else
 					p->state = PORT_STATE_SET_CONFIGURATION;
-				}
 			}
 			check_retry(p);
 			break;
@@ -652,7 +805,8 @@ static void port_service(struct port_status *p, char name)
 			packet.wLength[0] = 0x00;
 			packet.wLength[1] = 0x00;
 
-			if(control_transfer(0x01, &packet, 1, NULL, 0) == 0) {
+			if(control_transfer(ADDR, &packet, 1, NULL, 0,
+			    p->ep0_size) == 0) {
 				p->retry_count = 0;
 				p->state = PORT_STATE_RUNNING;
 			}
@@ -661,9 +815,11 @@ static void port_service(struct port_status *p, char name)
 		}
 		case PORT_STATE_RUNNING:
 			if(p->keyboard.ep)
-				poll(&p->keyboard, 1);
+				poll(&p->keyboard, process_keyboard);
 			if(p->mouse.ep)
-				poll(&p->mouse, 0);
+				poll(&p->mouse, process_mouse);
+			if(p->midi.ep)
+				poll(&p->midi, process_midi);
 			break;
 		case PORT_STATE_UNSUPPORTED:
 			break;
@@ -677,7 +833,7 @@ static void sof()
 {
 	unsigned char mask;
 	unsigned char usb_buffer[3];
-	
+
 	mask = 0;
 #ifndef TRIGGER
 	if(port_a.full_speed && (port_a.state > PORT_STATE_BUS_RESET))
@@ -696,7 +852,7 @@ static void sof()
 static void keepalive()
 {
 	unsigned char mask;
-	
+
 	mask = 0;
 #ifndef TRIGGER
 	if(!port_a.full_speed && (port_a.state == PORT_STATE_RESET_WAIT))
@@ -715,7 +871,7 @@ static void keepalive()
 static void set_rx_speed()
 {
 	unsigned char mask;
-	
+
 	mask = 0;
 	if(!port_a.full_speed) mask |= 0x01;
 	if(!port_b.full_speed) mask |= 0x02;
@@ -744,7 +900,7 @@ int main()
 		 */
 		for(i=0;i<128;i++)
 			asm("nop");
-		
+
 #ifndef TRIGGER
 		wio8(SIE_SEL_RX, 0);
 		wio8(SIE_SEL_TX, 0x01);
@@ -754,7 +910,7 @@ int main()
 		wio8(SIE_SEL_RX, 1);
 		wio8(SIE_SEL_TX, 0x02);
 		port_service(&port_b, 'B');
-		
+
 		/* set RX speed for new detected devices */
 		set_rx_speed();
 
