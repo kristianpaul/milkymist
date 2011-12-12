@@ -91,7 +91,7 @@ const int prn_code[38] =
 
 /* MMIO */
 #define MM_READ(reg) (*((volatile unsigned int *)(reg)))
-#define MM_READS(reg) (*((volatile signed short int *)(reg)))
+#define MM_READS(reg) (short int)(*((volatile unsigned int *)(reg))) 
 #define MM_WRITE(reg, val) *((volatile unsigned int *)(reg)) = val
 
 /* General address space functions */
@@ -202,6 +202,32 @@ static void namurumeasure()
 		}
 	}
 	printf("Bye\n");
+}
+static void namuruaccumone()
+{
+	char *c;
+//	short int value;
+	printf("Accumulator: \n");
+	printf("I_P\n");
+	/* missing polling accum int pin */
+	while(1)
+	{
+                
+//		volatile unsigned int *ch_prompt = CH0_I_PROMPT;
+//		value = (short int) *ch_prompt;
+		//printf("%d\n",(short int)(*((volatile unsigned int *)(CH0_I_PROMPT))));
+		printf("%d\n",MM_READS(CH0_I_PROMPT));
+	MM_WRITE(CLEAR_STATUS,0x0f);
+	MM_WRITE(CH0_ENABLES,0xff);
+		if(readchar_nonblock()) 
+		{
+			c = readchar();
+			if(c == 'q')
+				break;
+		}
+	}
+	printf("\n");
+
 }
 static void namuruaccumu()
 {
@@ -637,6 +663,7 @@ static void help()
 	puts("namurumeasure - no dump,measure TPs with scope ");
 	puts("namuruaccums - dump accumlators as signed to screen");
 	puts("namuruaccumu - dump accumlators as un-signed to screen");
+	puts("namuruaccumone - dump one accumlator as signed to screen");
 	puts("memtest1   - memory speed test, use a stopwatch!");
 	puts("printmath   - confirm some signed/unsiged visualization");
 }
@@ -692,6 +719,7 @@ static void do_command(char *c)
 	else if(strcmp(token, "namurumeasure") == 0) namurumeasure();
 	else if(strcmp(token, "namuruaccums") == 0) namuruaccums();
 	else if(strcmp(token, "namuruaccumu") == 0) namuruaccumu();
+	else if(strcmp(token, "namuruaccumone") == 0) namuruaccumone();
 	else if(strcmp(token, "memtest1") == 0) memtest1();
 	else if(strcmp(token, "printmath") == 0) printmath();
 
@@ -861,7 +889,7 @@ int main(int i, char **c)
 	putsnonl(banner);
 	crcbios();
 	brd_init();
-	tmu_init(); /* < for hardware-accelerated scrolling */
+	//tmu_init(); /* < for hardware-accelerated scrolling */
 	//usb_init();
 	//ukb_init();
 
@@ -872,8 +900,8 @@ int main(int i, char **c)
 	ethreset(); /* < that pesky ethernet PHY needs two resets at times... */
 	print_mac();
 	boot_sequence();
-	vga_unblank();
-	vga_set_console(1);
+	//vga_unblank();
+	//vga_set_console(1);
 	while(1) {
 		putsnonl("\e[1mBIOS>\e[0m ");
 		readstr(buffer, 64);
