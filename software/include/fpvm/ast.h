@@ -15,12 +15,39 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-#ifndef __AST_H
-#define __AST_H
+#ifndef __FPVM_AST_H
+#define __FPVM_AST_H
 
-#define NDEBUG
-
-#define IDENTIFIER_SIZE 24
+enum ast_op {
+	op_trouble,	/* null value */
+	op_ident,
+	op_constant,
+	op_plus,
+	op_minus,
+	op_multiply,
+	op_divide,
+	op_percent,
+	op_abs,
+	op_isin,
+	op_icos,
+	op_sin,
+	op_cos,
+	op_above,
+	op_below,
+	op_equal,
+	op_i2f,
+	op_f2i,
+	op_if,
+	op_tsign,
+	op_quake,
+	op_not,
+	op_sqr,
+	op_sqrt,
+	op_invsqrt,
+	op_min,
+	op_max,
+	op_int,
+};
 
 /* maximum supported arity is 3 */
 struct ast_branches {
@@ -30,6 +57,7 @@ struct ast_branches {
 };
 
 struct ast_node {
+	enum ast_op op;
 	/*
 	 * label is an empty string:
 	 *   node is a constant
@@ -38,15 +66,11 @@ struct ast_node {
 	 * label is not an empty string and branch A is not null:
 	 *   node is function/operator "label"
 	 */
-	char label[IDENTIFIER_SIZE];
+	const char *label;
 	union {
 		struct ast_branches branches;
 		float constant;
 	} contents;
 };
 
-void *ParseAlloc(void *(*mallocProc)(size_t));
-void ParseFree(void *p, void (*freeProc)(void*));
-void Parse(void *yyp, int yymajor, void *yyminor, struct ast_node **p);
-
-#endif /* __AST_H */
+#endif /* __FPVM_AST_H */
