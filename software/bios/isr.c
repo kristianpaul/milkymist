@@ -36,7 +36,4 @@ void isr()
 
 	if(irqs & IRQ_USB)
 		usb_isr();
-
-	if(irqs & IRQ_CORRELATOR)
-		correlator_isr();
 }

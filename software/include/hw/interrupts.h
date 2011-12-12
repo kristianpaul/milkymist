@@ -34,5 +34,6 @@
 #define IRQ_MIDI		(0x00002000) /* 13 */
 #define IRQ_IR			(0x00004000) /* 14 */
 #define IRQ_NAMURU		(0x00008000) /* 15 */
+#define IRQ_USB			(0x00008000) /* 15 */
 
 #endif /* __HW_INTERRUPTS_H */
