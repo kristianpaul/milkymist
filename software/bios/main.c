@@ -282,8 +282,8 @@ static void namurustatus()
 	while(1)
 	{
 		printf("%02d\t\t%02d\t\t%02d\t\t%02d\t\t%02d\t\t%02d\n",(MM_READ(TIC_COUNT)),(MM_READ(ACCUM_COUNT)),(MM_READ(CH0_CARRIER_MEASUREMENT)),(MM_READ(CH0_CODE_MEASUREMENT)),(MM_READ(STATUS)),(MM_READ(NEW_DATA)));
-	MM_WRITE(CLEAR_STATUS,0x0f);
-	MM_WRITE(CH0_ENABLES,0xff);
+//	MM_WRITE(CLEAR_STATUS,0x0f);
+//	MM_WRITE(CH0_ENABLES,0xff);
 		if(readchar_nonblock()) 
 		{
 			c = readchar();
