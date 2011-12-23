@@ -48,7 +48,7 @@ enum {
 	CSR_WP0, CSR_WP1, CSR_WP2, CSR_WP3,
 };
 
-/* namuru registers */
+/*  registers */
 /* CH0 */
 #define CH0_PRN_KEY	(0xa0000000)
 #define CH0_CARRIER_NCO	(0xa0000004)
@@ -157,7 +157,7 @@ static void memtest1()
 	puts("Done \n");
 }
 
-static void namuruinit()
+static void init()
 {
 	char *c;
 	printf("\n");
@@ -188,7 +188,7 @@ static void namuruinit()
 	printf("CH0 Epoch Load\n");
 	printf("Done\n");
 }
-static void namurumeasure()
+static void measure()
 {
 	char *c;
 	while(1)
@@ -203,7 +203,7 @@ static void namurumeasure()
 	}
 	printf("Bye\n");
 }
-static void namuruaccumone()
+static void accumone()
 {
 	char *c;
 //	short int value;
@@ -229,7 +229,7 @@ static void namuruaccumone()
 	printf("\n");
 
 }
-static void namuruaccumu()
+static void accumu()
 {
 	char *c;
 	printf("Accumulators: \n");
@@ -251,7 +251,7 @@ static void namuruaccumu()
 
 }
 
-static void namuruaccums()
+static void accums()
 {
 	char *c;
 	printf("Accumulators: \n");
@@ -273,7 +273,7 @@ static void namuruaccums()
 
 }
 
-static void namurustatus()
+static void status()
 {
 	char *c;
 	printf("\n");
@@ -282,7 +282,7 @@ static void namurustatus()
 	while(1)
 	{
 		printf("%02d\t\t%02d\t\t%02d\t\t%02d\t\t%02d\t\t%02d\n",(MM_READ(TIC_COUNT)),(MM_READ(ACCUM_COUNT)),(MM_READ(CH0_CARRIER_MEASUREMENT)),(MM_READ(CH0_CODE_MEASUREMENT)),(MM_READ(STATUS)),(MM_READ(NEW_DATA)));
-//	MM_WRITE(CLEAR_STATUS,0x0f);
+	MM_WRITE(CLEAR_STATUS,0x0f);
 //	MM_WRITE(CH0_ENABLES,0xff);
 		if(readchar_nonblock()) 
 		{
@@ -295,7 +295,7 @@ static void namurustatus()
 	printf("\n");
 }
 
-static void namuruacq()
+static void acq()
 {
 	char *c;
 	printf("Accumulators: \n");
@@ -658,12 +658,12 @@ static void help()
 	puts("version    - display version");
 	puts("reboot     - system reset");
 	puts("reconf     - reload FPGA configuration");
-	puts("namuruinit - init basic essential registers");
-	puts("namurustatus - dump status to screen");
-	puts("namurumeasure - no dump,measure TPs with scope ");
-	puts("namuruaccums - dump accumlators as signed to screen");
-	puts("namuruaccumu - dump accumlators as un-signed to screen");
-	puts("namuruaccumone - dump one accumlator as signed to screen");
+	puts("init - init correlator essential registers");
+	puts("status - dump status to screen");
+	puts("measure - no dump,measure TPs with scope ");
+	puts("accums - dump accumlators as signed to screen");
+	puts("accumu - dump accumlators as un-signed to screen");
+	puts("accumone - dump one accumlator as signed to screen");
 	puts("memtest1   - memory speed test, use a stopwatch!");
 	puts("printmath   - confirm some signed/unsiged visualization");
 }
@@ -714,12 +714,12 @@ static void do_command(char *c)
 
 	else if(strcmp(token, "help") == 0) help();
 	
-	else if(strcmp(token, "namuruinit") == 0) namuruinit();
-	else if(strcmp(token, "namurustatus") == 0) namurustatus();
-	else if(strcmp(token, "namurumeasure") == 0) namurumeasure();
-	else if(strcmp(token, "namuruaccums") == 0) namuruaccums();
-	else if(strcmp(token, "namuruaccumu") == 0) namuruaccumu();
-	else if(strcmp(token, "namuruaccumone") == 0) namuruaccumone();
+	else if(strcmp(token, "init") == 0) init();
+	else if(strcmp(token, "status") == 0) status();
+	else if(strcmp(token, "measure") == 0) measure();
+	else if(strcmp(token, "accums") == 0) accums();
+	else if(strcmp(token, "accumu") == 0) accumu();
+	else if(strcmp(token, "accumone") == 0) accumone();
 	else if(strcmp(token, "memtest1") == 0) memtest1();
 	else if(strcmp(token, "printmath") == 0) printmath();
 
@@ -794,6 +794,8 @@ static void print_mac()
 
 static const char banner[] =
 	"\nMILKYMIST(tm) v"VERSION" BIOS   http://www.milkymist.org\n"
+	"Modified to assist Namuru Correlator \n\n"
+	"(c) Copyleft 2011 Cristian Paul Peñaranda Rojas \n\n"
 	"(c) Copyright 2007, 2008, 2009, 2010, 2011 Sebastien Bourdeauducq\n\n"
 	"This program is free software: you can redistribute it and/or modify\n"
 	"it under the terms of the GNU General Public License as published by\n"
@@ -888,7 +890,7 @@ int main(int i, char **c)
 	vga_init(!(rescue || (CSR_GPIO_IN & GPIO_BTN2)));
 	putsnonl(banner);
 	crcbios();
-	brd_init();
+//	brd_init();
 	//tmu_init(); /* < for hardware-accelerated scrolling */
 	//usb_init();
 	//ukb_init();
@@ -897,9 +899,9 @@ int main(int i, char **c)
 		printf("I: Booting in rescue mode\n");
 
 	//splash_display();
-	ethreset(); /* < that pesky ethernet PHY needs two resets at times... */
-	print_mac();
-	boot_sequence();
+	//ethreset(); /* < that pesky ethernet PHY needs two resets at times... */
+	//print_mac();
+	//boot_sequence(); //enable for rtems booting from NOR
 	//vga_unblank();
 	//vga_set_console(1);
 	while(1) {
