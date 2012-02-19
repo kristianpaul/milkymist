@@ -27,7 +27,7 @@ static char rx_buf[UKB_RINGBUFFER_SIZE_RX];
 static volatile unsigned int rx_produce;
 static volatile unsigned int rx_consume;
 
-char ukb_readchar()
+static char ukb_readchar(void)
 {
 	char c;
 
@@ -37,7 +37,7 @@ char ukb_readchar()
 	return c;
 }
 
-int ukb_readchar_nonblock()
+static int ukb_readchar_nonblock(void)
 {
 	return (rx_consume != rx_produce);
 }
@@ -133,7 +133,7 @@ static void keyboard_cb(unsigned char modifiers, unsigned char key)
 	}
 }
 
-void ukb_init()
+void ukb_init(void)
 {
 	rx_produce = 0;
 	rx_consume = 0;

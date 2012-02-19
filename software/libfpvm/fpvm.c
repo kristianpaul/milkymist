@@ -19,12 +19,15 @@
 #include <base/version.h>
 
 #include <fpvm/is.h>
+#include <fpvm/symbol.h>
 #include <fpvm/fpvm.h>
 #include <fpvm/ast.h>
 
 
-const char *_Xi, *_Yi, *_Xo, *_Yo; /* unique, provided by user of libfpvm */
+struct fpvm_sym *_Xi, *_Yi, *_Xo, *_Yo;
+	/* unique, provided by user of libfpvm */
 
+static struct fpvm_sym dummy_sym = { .name = "" };
 
 const char *fpvm_version(void)
 {
@@ -44,7 +47,7 @@ void fpvm_do_init(struct fpvm_fragment *fragment, int vector_mode)
 	fragment->bindings[1].b.v = _Yi;
 	/* Prevent binding of R2 (we need it for "if") */
 	fragment->bindings[2].isvar = 1;
-	fragment->bindings[2].b.v = "";
+	fragment->bindings[2].b.v = &dummy_sym;
 
 	fragment->ntbindings = 2;
 	fragment->tbindings[0].reg = -1;
@@ -78,13 +81,13 @@ void fpvm_set_bind_mode(struct fpvm_fragment *fragment, int bind_mode)
 	fragment->bind_mode = bind_mode;
 }
 
-int fpvm_bind(struct fpvm_fragment *fragment, const char *sym)
+int fpvm_bind(struct fpvm_fragment *fragment, struct fpvm_sym *sym)
 {
 	int r;
 	
 	if(fragment->nbindings == FPVM_MAXBINDINGS) {
 		snprintf(fragment->last_error, FPVM_MAXERRLEN,
-		    "Failed to allocate register for variable: %s", sym);
+		    "Failed to allocate register for variable: %s", sym->name);
 		return FPVM_INVALID_REG;
 	}
 	r = fragment->nbindings++;
@@ -95,27 +98,27 @@ int fpvm_bind(struct fpvm_fragment *fragment, const char *sym)
 	return r;
 }
 
-void fpvm_set_xin(struct fpvm_fragment *fragment, const char *sym)
+void fpvm_set_xin(struct fpvm_fragment *fragment, struct fpvm_sym *sym)
 {
 	fragment->bindings[0].b.v = sym;
 }
 
-void fpvm_set_yin(struct fpvm_fragment *fragment, const char *sym)
+void fpvm_set_yin(struct fpvm_fragment *fragment, struct fpvm_sym *sym)
 {
 	fragment->bindings[1].b.v = sym;
 }
 
-void fpvm_set_xout(struct fpvm_fragment *fragment, const char *sym)
+void fpvm_set_xout(struct fpvm_fragment *fragment, struct fpvm_sym *sym)
 {
 	fragment->tbindings[0].sym = sym;
 }
 
-void fpvm_set_yout(struct fpvm_fragment *fragment, const char *sym)
+void fpvm_set_yout(struct fpvm_fragment *fragment, struct fpvm_sym *sym)
 {
 	fragment->tbindings[1].sym = sym;
 }
 
-static int lookup(struct fpvm_fragment *fragment, const char *sym)
+static int lookup(struct fpvm_fragment *fragment, struct fpvm_sym *sym)
 {
 	int i;
 
@@ -132,11 +135,11 @@ static int lookup(struct fpvm_fragment *fragment, const char *sym)
 	return FPVM_INVALID_REG;
 }
 
-static int tbind(struct fpvm_fragment *fragment, const char *sym)
+static int tbind(struct fpvm_fragment *fragment, struct fpvm_sym *sym)
 {
 	if(fragment->ntbindings == FPVM_MAXTBINDINGS) {
 		snprintf(fragment->last_error, FPVM_MAXERRLEN,
-		    "Failed to allocate register for variable: %s", sym);
+		    "Failed to allocate register for variable: %s", sym->name);
 		return FPVM_INVALID_REG;
 	}
 	fragment->tbindings[fragment->ntbindings].reg = fragment->next_sur;
@@ -145,7 +148,8 @@ static int tbind(struct fpvm_fragment *fragment, const char *sym)
 	return fragment->next_sur--;
 }
 
-static int rename_reg(struct fpvm_fragment *fragment, const char *sym, int reg)
+static int rename_reg(struct fpvm_fragment *fragment, struct fpvm_sym *sym,
+    int reg)
 {
 	int i;
 
@@ -157,7 +161,7 @@ static int rename_reg(struct fpvm_fragment *fragment, const char *sym, int reg)
 	if(fragment->nrenamings == FPVM_MAXRENAMINGS) {
 		snprintf(fragment->last_error, FPVM_MAXERRLEN,
 		    "Failed to allocate renamed register for variable: %s",
-		    sym);
+		    sym->name);
 		return 0;
 	}
 	fragment->renamings[fragment->nrenamings].reg = reg;
@@ -166,7 +170,7 @@ static int rename_reg(struct fpvm_fragment *fragment, const char *sym, int reg)
 	return 1;
 }
 
-static int sym_to_reg(struct fpvm_fragment *fragment, const char *sym,
+static int sym_to_reg(struct fpvm_fragment *fragment, struct fpvm_sym *sym,
     int dest, int *created)
 {
 	int r;
@@ -361,15 +365,15 @@ static int compile(struct fpvm_fragment *fragment, int reg, struct ast_node *nod
 	case op_ident:
 		/* AST node is a variable */
 		if(fragment->bind_mode) {
-			opa = sym_to_reg(fragment, node->label, 0, NULL);
+			opa = sym_to_reg(fragment, node->sym, 0, NULL);
 			if(opa == FPVM_INVALID_REG) return FPVM_INVALID_REG;
 		} else {
-			opa = lookup(fragment, node->label);
+			opa = lookup(fragment, node->sym);
 			if((opa == FPVM_INVALID_REG)||
 			    (opa == fragment->final_dest)) {
 				snprintf(fragment->last_error, FPVM_MAXERRLEN,
 				    "Reading unbound variable: %s",
-				    node->label);
+				    node->sym->name);
 				return FPVM_INVALID_REG;
 			}
 		}
@@ -389,9 +393,14 @@ static int compile(struct fpvm_fragment *fragment, int reg, struct ast_node *nod
 		 */
 		opa = COMPILE(FPVM_INVALID_REG, node->contents.branches.b);
 		opb = COMPILE(FPVM_INVALID_REG, node->contents.branches.c);
-		COMPILE(FPVM_REG_IFB, node->contents.branches.a);
+		(void) COMPILE(FPVM_REG_IFB, node->contents.branches.a);
 		break;
-	case op_not:
+	case op_band:
+	case op_bor:
+		opa = opb = 0;
+		(void) COMPILE(FPVM_REG_IFB, node->contents.branches.a);
+		break;
+	case op_negate:
 		if(node->contents.branches.a->op == op_constant) {
 			/* Node is a negative constant */
 			struct ast_node *n;
@@ -512,18 +521,44 @@ static int compile(struct fpvm_fragment *fragment, int reg, struct ast_node *nod
 	case op_int:
 		ADD_INT(opa, reg);
 		break;
-	case op_not:
+	case op_negate:
 		opb = find_negative_constant(fragment);
 		if(opb == FPVM_INVALID_REG)
 			return FPVM_INVALID_REG;
 		ADD_ISN(FPVM_OPCODE_TSIGN, opa, opb, reg);
 		break;
+	case op_bnot:
+		opb = REG_CONST(0);
+		if(opb == FPVM_INVALID_REG)
+			return FPVM_INVALID_REG;
+		ADD_ISN(FPVM_OPCODE_EQUAL, opa, opb, reg);
+		break;
+	case op_band: {
+		int reg_zero = REG_CONST(0);
+		int reg_one = REG_CONST(1);
+		int reg_tmp = REG_ALLOC();
+
+		ADD_ISN(FPVM_OPCODE_IF, reg_one, reg_zero, reg_tmp);
+		(void) COMPILE(FPVM_REG_IFB, node->contents.branches.b);
+		ADD_ISN(FPVM_OPCODE_IF, reg_tmp, reg_zero, reg);
+		break;
+	}
+	case op_bor: {
+		int reg_zero = REG_CONST(0);
+		int reg_one = REG_CONST(1);
+		int reg_tmp = REG_ALLOC();
+
+		ADD_ISN(FPVM_OPCODE_IF, reg_one, reg_zero, reg_tmp);
+		(void) COMPILE(FPVM_REG_IFB, node->contents.branches.b);
+		ADD_ISN(FPVM_OPCODE_IF, reg_one, reg_tmp, reg);
+		break;
+	}
 	default:
 		/* Normal case */
 		opcode = operator2opcode(node->op);
 		if(opcode < 0) {
 			snprintf(fragment->last_error, FPVM_MAXERRLEN,
-			    "Operation not supported: %s", node->label);
+			    "Operation not supported: %d", node->op);
 			return FPVM_INVALID_REG;
 		}
 		ADD_ISN(opcode, opa, opb, reg);
@@ -555,7 +590,7 @@ static void fragment_restore(struct fpvm_fragment *fragment,
 	fragment->ninstructions = backup->ninstructions;
 }
 
-int fpvm_do_assign(struct fpvm_fragment *fragment, const char *dest,
+int fpvm_do_assign(struct fpvm_fragment *fragment, struct fpvm_sym *dest,
     struct ast_node *n)
 {
 	int dest_reg;
@@ -683,7 +718,7 @@ void fpvm_dump(struct fpvm_fragment *fragment)
 	for(i=0;i<fragment->nbindings;i++) {
 		printf("R%04d ", i);
 		if(fragment->bindings[i].isvar)
-			printf("%s\n", fragment->bindings[i].b.v);
+			printf("%s\n", fragment->bindings[i].b.v->name);
 		else
 			#ifdef PRINTF_FLOAT
 			printf("%f\n", fragment->bindings[i].b.c);
@@ -694,7 +729,7 @@ void fpvm_dump(struct fpvm_fragment *fragment)
 	printf("== Transient bindings:\n");
 	for(i=0;i<fragment->ntbindings;i++) {
 		printf("R%04d ", fragment->tbindings[i].reg);
-		printf("%s\n", fragment->tbindings[i].sym);
+		printf("%s\n", fragment->tbindings[i].sym->name);
 	}
 	printf("== Code:\n");
 	for(i=0;i<fragment->ninstructions;i++) {

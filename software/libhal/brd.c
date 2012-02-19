@@ -29,7 +29,7 @@ const struct board_desc *brd_desc;
 
 #define display_capability(cap, val) if(val) printf("BRD: "cap": Yes\n"); else printf("BRD: "cap": No\n")
 
-static void display_capabilities()
+static void display_capabilities(void)
 {
 	unsigned int cap;
 
@@ -48,7 +48,7 @@ static void display_capabilities()
 	display_capability("Memtester ", cap & CAP_MEMTEST);
 }
 
-void brd_init()
+void brd_init(void)
 {
 	int rev;
 	char soc_version[13];

@@ -40,13 +40,16 @@ enum ast_op {
 	op_if,
 	op_tsign,
 	op_quake,
-	op_not,
+	op_negate,
 	op_sqr,
 	op_sqrt,
 	op_invsqrt,
 	op_min,
 	op_max,
 	op_int,
+	op_bnot,
+	op_band,
+	op_bor,
 };
 
 /* maximum supported arity is 3 */
@@ -58,19 +61,16 @@ struct ast_branches {
 
 struct ast_node {
 	enum ast_op op;
-	/*
-	 * label is an empty string:
-	 *   node is a constant
-	 * label is not an empty string and branch A is null:
-	 *   node is variable "label"
-	 * label is not an empty string and branch A is not null:
-	 *   node is function/operator "label"
-	 */
-	const char *label;
+	struct fpvm_sym *sym;
 	union {
 		struct ast_branches branches;
 		float constant;
 	} contents;
 };
+
+static inline int node_is_op(const struct ast_node *n)
+{
+	return n->op >= op_plus;
+}
 
 #endif /* __FPVM_AST_H */

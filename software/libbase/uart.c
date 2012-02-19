@@ -45,9 +45,10 @@ static volatile int tx_cts;
 static int force_sync;
 
 
-void uart_isr()
+void uart_isr(void)
 {
 	unsigned int stat = CSR_UART_STAT;
+	CSR_UART_STAT = stat;
 
 	if(stat & UART_STAT_RX_EVT) {
 		rx_buf[rx_produce] = CSR_UART_RXTX;
@@ -62,12 +63,11 @@ void uart_isr()
 			tx_cts = 1;
 	}
 
-	CSR_UART_STAT = stat;
 	irq_ack(IRQ_UART);
 }
 
 /* Do not use in interrupt handlers! */
-char uart_read()
+char uart_read(void)
 {
 	char c;
 	
@@ -77,7 +77,7 @@ char uart_read()
 	return c;
 }
 
-int uart_read_nonblock()
+int uart_read_nonblock(void)
 {
 	return (rx_consume != rx_produce);
 }
@@ -104,7 +104,7 @@ void uart_write(char c)
 	irq_setmask(oldmask);
 }
 
-void uart_init()
+void uart_init(void)
 {
 	unsigned int mask;
 	
