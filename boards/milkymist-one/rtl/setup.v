@@ -42,12 +42,12 @@
 /*
  * System clock frequency in Hz.
  */
-`define CLOCK_FREQUENCY 81920000
+`define CLOCK_FREQUENCY 65536000
 
 /*
  * System clock period in ns (must be in sync with CLOCK_FREQUENCY).
  */
-`define CLOCK_PERIOD 61
+`define CLOCK_PERIOD 15.2
 
 /*
  * Default baudrate for the debug UART.
