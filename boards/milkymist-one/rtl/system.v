@@ -160,7 +160,7 @@ wire sys_clk_dcm;
 wire sys_clk_n_dcm;
 
 DCM_SP #(
-	.CLKDV_DIVIDE(1.5),		// 1.5,2.0,2.5,3.0,3.5,4.0,4.5,5.0,5.5,6.0,6.5
+	.CLKDV_DIVIDE(1.5),		// 1.5,2.0,2.5,3.0,3.5,4.0,4.5,5.0,5.5,6.0,6.5 - ignored
 
 	.CLKFX_DIVIDE(1),		// 1 to 32
 	.CLKFX_MULTIPLY(4),		// 2 to 32
