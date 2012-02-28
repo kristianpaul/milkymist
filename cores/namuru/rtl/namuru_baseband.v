@@ -163,56 +163,55 @@ reg [31:0] wb_dat_o;
 reg [31:0] temp;
 always @(posedge correlator_clk) begin
 	        if(correlator_rst) begin
-			wb_dat_o <= 32'd0;
-			ch0_prn_key_enable <= 1'b0;
-			ch0_prn_key <= 10'b0;
-			ch0_carr_nco <= 29'd0;// Need to initialize nco's (at least for simulation) or they don't run.
-			ch0_code_nco <= 28'd0;
-			ch0_slew_enable <= 1'b0;
-			ch0_code_slew <= 11'b0;
-			ch0_epoch_enable <=  1'b0;
-			ch0_epoch_load <= 11'b0;
-			prog_accum_int <= 24'b0;
-			prog_tic <= 24'b0;
+			wb_dat_o <= 0;
+			ch0_prn_key_enable <= 0;
+			ch0_prn_key <= 0;
+			ch0_carr_nco <= 0;
+			ch0_code_nco <= 0;
+			ch0_slew_enable <= 0;
+			ch0_code_slew <= 0;
+			ch0_epoch_enable <=  0;
+			ch0_epoch_load <= 0;
+			prog_accum_int <= 0;
+			prog_tic <= 0;
 
-			sw_rst <= 1'b0;
-			status_read <= 1'b0;
-			new_data_read <= 1'b0;
+			sw_rst <= 0;
+			status_read <= 0;
+			new_data_read <= 0;
 
-			gps_led <= 1'b0;
+			gps_led <= 0;
 			
 		end else begin
-			wb_dat_o <= 32'd0;
+			if(status_read) begin
+				status_read <= 0;
+			end
 
-			status_read <= 1'b0;
-			new_data_read <= 1'b0;
-			ch0_prn_key_enable <= 1'b0;
+			if(new_data_read) begin
+				new_data_read <= 0;
+			end
 			if(next_csr_we) begin
 				/* write */
 				case(wb_adr_i[9:2])
 				/* channel 0 */
 				8'h00: begin
+					ch0_prn_key_enable <= 1'b1;
 					ch0_prn_key <= wb_dat_i[9:0];
 				end
 				8'h01: ch0_carr_nco <= wb_dat_i[28:0];
 				8'h02: ch0_code_nco <= wb_dat_i[27:0];
 				8'h03: begin
+					ch0_slew_enable <= 1'b1;
 					ch0_code_slew <= wb_dat_i[10:0];
 				end
 
 				8'h0E : begin
+					ch0_epoch_enable <= 1'b1;
 					ch0_epoch_load <= wb_dat_i[10:0];
 				end
-				/* enable flags for channel 0 tracking logic */
-				8'h0F: {ch0_epoch_enable,ch0_slew_enable,ch0_prn_key_enable} <= wb_dat_i[2:0];
-
 				/* status */ 
-				8'hE4: begin // clear status flag
-					{new_data_read,status_read} <= wb_dat_i[1:0];
-				end
 
 				/* control */ 
-				8'hF0: sw_rst <= wb_dat_i[0:0]; // software reset
+				8'hF0: sw_rst <= 1'b1; // correlator software reset
 				8'hF1: prog_tic <= wb_dat_i[23:0]; // program TIC
 				8'hF2: prog_accum_int <= wb_dat_i[23:0]; // program ACCUM_INT
 				8'hF3: temp <= wb_dat_i[31:0]; // temp
@@ -238,15 +237,16 @@ always @(posedge correlator_clk) begin
 			8'h0C: wb_dat_o <= {21'h0, ch0_epoch}; // 11 bits
 			8'h0D: wb_dat_o <= {21'h0, ch0_epoch_check}; // 11 bits
 			8'h0E: wb_dat_o <= {21'h0, ch0_epoch_load};
-			8'h0F: wb_dat_o <= {28'h0, ch0_epoch_enable,ch0_slew_enable,ch0_prn_key_enable};
 
 			/* status */ 
 			8'hE0: begin // get status and pulse status_flag to clear status
 				wb_dat_o <= {30'h0, status}; // only 2 status bits, therefore need to pad 30ms bits
+				status_read <=  1'b1;
 			end
 			8'hE1: begin // get new_data
 				wb_dat_o <= {30'h0,new_data}; //one new_data bit per channel, need to pad other bits
 				// pulse the new data flag to clear new_data register
+				new_data_read <= 1'b1;
 				// make sure the flag is not cleared if a dump is aligned to new_data_read
 				dump_mask[0] <= ch0_dump;
 				/* more channels to come */
@@ -257,10 +257,10 @@ always @(posedge correlator_clk) begin
 			8'hE3: begin // accum count read
 				wb_dat_o <= {8'h0,accum_count}; // 24 bits of accum count
 			end
-			8'hE4: begin // accum count read
+			8'hE4: begin // status read
 				wb_dat_o <= {30'h0,new_data_read,status_read}; // 24 bits of accum count
 			end
-			8'hEF: begin // accum count read
+			8'hEF: begin
 				wb_dat_o <= 32'h6e6d7275; // HW_TAG nmru
 			end
 				/* control */ 
