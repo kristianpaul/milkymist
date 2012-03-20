@@ -33,6 +33,7 @@
 //`define ENABLE_MIDI
 //`define ENABLE_DMX
 //`define ENABLE_IR
+`define ENABLE_CORRELATOR
 
 `ifndef ENABLE_TMU
 `define ENABLE_MEMTEST

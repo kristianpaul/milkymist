@@ -10,6 +10,7 @@
 *.swn
 *.swo
 *log*
+*.svn
 boards/milkymist-one/synthesis/build
 boards/milkymist-one/synthesis/build-rescue
 boards/milkymist-one/standby/build

@@ -1,6 +1,6 @@
 MMDIR?=../../..
 
-TARGETS=standby.fpg soc-rescue.fpg bios-rescue.bin splash-rescue.raw soc.fpg bios.bin splash.raw
+TARGETS=standby.fpg soc-rescue.fpg bios-rescue.bin splash-rescue.raw soc.fpg gps.bin bios.bin splash.raw
 SERIAL?=/dev/ttyUSB0
 
 all: $(TARGETS)
@@ -24,6 +24,7 @@ bios-rescue.bin:
 	$(MAKE) -C $(MMDIR)/software/libhal
 	$(MAKE) -C $(MMDIR)/software/libnet
 	$(MAKE) -C $(MMDIR)/software/bios
+	$(MAKE) -C $(MMDIR)/software/gps
 	cp $(MMDIR)/software/bios/bios-rescue.bin .
 
 splash-rescue.raw: splash-rescue.png
@@ -43,6 +44,15 @@ bios.bin:
 	$(MAKE) -C $(MMDIR)/software/libnet
 	$(MAKE) -C $(MMDIR)/software/bios
 	cp $(MMDIR)/software/bios/bios.bin .
+	
+gps.bin:
+	$(MAKE) -C $(MMDIR)/tools
+	$(MAKE) -C $(MMDIR)/software/libhpdmc
+	$(MAKE) -C $(MMDIR)/software/libbase
+	$(MAKE) -C $(MMDIR)/software/libhal
+	$(MAKE) -C $(MMDIR)/software/libnet
+	$(MAKE) -C $(MMDIR)/software/gps
+	cp $(MMDIR)/software/gps/gps.bin .
 
 splash.raw: splash.png
 	$(MAKE) -C $(MMDIR)/tools

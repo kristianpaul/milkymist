@@ -141,7 +141,6 @@ module system(
 	input gps_rec_clk,
 	input gps_rec_sign,
 	input gps_rec_mag,
-	//output gps_led,
 
 	// PCB revision
 	input [3:0] pcb_revision
@@ -379,7 +378,7 @@ wire		norflash_ack,
 conbus5x6 #(
 	.s0_addr(3'b000), // norflash
 	.s1_addr(3'b001), // debug
-	.s2_addr(3'b010), // L1 GPS Correlator
+	.s2_addr(3'b010), // Namuru Correlator
 	.s3_addr(3'b011), // Ethernet
 	.s4_addr(2'b10),  // SDRAM
 	.s5_addr(2'b11)   // CSR
@@ -757,7 +756,7 @@ wire namuru_irq;
 
 wire [31:0] cpu_interrupt;
 assign cpu_interrupt = {16'd0,
-	namuru_irq,
+	~namuru_irq,
 	ir_irq,
 	midi_irq,
 	videoin_irq,
@@ -950,7 +949,7 @@ sysctl #(
 	.csr_do(csr_dr_sysctl),
 
 	.gpio_inputs({pcb_revision, btn3, btn2, btn1}),
-	.gpio_outputs({led1}),
+	.gpio_outputs({led1,led2}),
 
 	.debug_write_lock(debug_write_lock),
 	.bus_errors_en(bus_errors_en),
@@ -1615,24 +1614,21 @@ FD workaround(
 //---------------------------------------------------------------------------
 //  namuru GPS Correlator
 //---------------------------------------------------------------------------
-namuru baseband (
-		.sys_clk(sys_clk),
-		.sys_rst(sys_rst),
-
-	        .wb_adr_i(namuru_adr),
-		.wb_dat_o(namuru_dat_r),
-		.wb_dat_i(namuru_dat_w),
-		.wb_sel_i(namuru_sel),
-		.wb_stb_i(namuru_stb),
-		.wb_cyc_i(namuru_cyc),
-		.wb_ack_o(namuru_ack),
-		.wb_we_i(namuru_we),
-
-////		.gps_rec_clk(gps_rec_clk),
-		.gps_rec_sign(gps_rec_sign),
-		.gps_rec_mag(gps_rec_mag),
-
-		.gps_led(led2)
+//
+simplified_gps_baseband corr(
+	.clk(sys_clk),
+	.hw_rstn(~sys_rst),
+	.sign(gps_rec_sign),
+	.mag(gps_rec_mag),
+	.wb_adr_i(namuru_adr),
+	.wb_dat_o(namuru_dat_r),
+	.wb_dat_i(namuru_dat_w),
+	.wb_sel_i(namuru_sel),
+	.wb_stb_i(namuru_stb),
+	.wb_cyc_i(namuru_cyc),
+	.wb_ack_o(namuru_ack),
+	.wb_we_i(namuru_we),
+        .accum_int(namuru_irq)
 );
 
 endmodule
